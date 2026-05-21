@@ -1,0 +1,18 @@
+[package]
+name = "superwarp-gui"
+version = "0.1.0"
+edition = "2021"
+authors = ["Eric Strawser (Seicz@Bahamut)"]
+description = "External GUI for the superwarp FFXI addon fork — aether/warp themed"
+
+[dependencies]
+eframe = "0.31"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"        # Optimize for size
+lto = true             # Link-time optimization across crates
+codegen-units = 1      # Better optimization, slower compile
+panic = "abort"        # No unwinding machinery
+strip = true           # Strip debug symbols

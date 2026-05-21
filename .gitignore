@@ -1,0 +1,17 @@
+# Rust build output
+target/
+
+# Binaries ship as Release assets, not in git
+*.exe
+*.pdb
+
+# Runtime state the GUI writes next to its exe
+superwarp_gui.json
+
+# Archives
+*.7z
+*.zip
+
+# OS cruft
+Thumbs.db
+desktop.ini

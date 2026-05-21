@@ -1,0 +1,46 @@
+# superwarp GUI — development transcript
+
+Session-by-session record of the GUI build, companion to the superwarp addon
+fork. Begins at Stage 4 of that effort, once the addon's bridge (Stages 1–3:
+transport, static catalogue, live unlock/currency capture; addon v1.3.1) was live-
+confirmed.
+
+---
+
+## Session — Stage 4a: foundation (GUI v0.1.0)
+
+**Context.** Addon v1.3.1 confirmed in-game: `lists` catalogue (675 destinations,
+13 systems), `unlocks_all` with per-destination state, and `currency` (cruor
+616,214 read from the Konschtat conflux). With the protocol proven end to end, the
+GUI build began.
+
+**Reference.** The user's Fisher GUI (`main.rs`, `Cargo.toml`) was the authoritative
+pattern: eframe 0.31, `serde`/`serde_json`, size-optimized release profile, a
+background connect thread handing a `TcpStream` back over mpsc, non-blocking
+line-delimited JSON read in the update loop, 3-second auto-reconnect, JSON config
+persisted next to the exe, `#[serde(tag="t")]` message enum, ViewportBuilder
+geometry restore. The GUI mirrors these idioms closely to stay on proven 0.31 API.
+
+**Built.**
+- `Cargo.toml` — `superwarp-gui` 0.1.0, eframe 0.31 + serde + serde_json, same
+  size-optimized release profile as Fisher.
+- `src/main.rs` — bridge (try_connect / check_pending_connect / send / poll), the
+  protocol types (`state`, `lists`, `unlocks`, `unlocks_all`, `msg`; commands
+  `warp_to`/`scan`/`cancel`/`get_*`), an unlock cache keyed by `destkey(zone,sub)`
+  matching the addon's record separator, and the UI: system browser with
+  `unlocked/known` counts, destination list with state dots + click-to-warp +
+  affordability-tinted cost, Scan button, per-system currency, label/zone/alias
+  search, header (character/zone/connection/BUSY+cancel/pin), footer log.
+- Outgoing commands built via `serde_json::json!` so apostrophe zone names escape.
+- **Aether theme** — deep indigo / azure / violet, distinct from Fisher's Mercedes
+  palette.
+- Persistence of window geometry, always-on-top, and last-selected system.
+- `README.md`, `CHANGELOG.md`.
+
+**Not compiled here** (no Rust toolchain in the work environment) — written against
+the Fisher GUI's exact 0.31 API usage; brace/paren/bracket balance verified. User
+builds locally with `cargo build --release`.
+
+**Shipped:** `superwarp-gui-v0.1.0.zip`. Next: live compile + react (theme/layout
+are the user's call given the high visual bar), then Stage 4b polish — richer
+unlock checklist, cross-system search, conveniences.
