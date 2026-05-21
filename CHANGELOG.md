@@ -5,6 +5,20 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.3.0] — global search
+
+- **Search is now global.** Typing in the search box matches destinations across
+  every system, not just the selected one. Each result is tagged at the end with
+  the system it belongs to (e.g. a violet `[homepoint]`), so you can tell where a
+  match lives. Clearing the search returns to browsing the selected system, with
+  no system tag (you already know which system you're in).
+- Clicking a search result warps via that result's own system, and its unlock dot
+  and affordability reflect that system's state.
+- Results sort by zone, then point, then system, so same-named zones from
+  different systems sit together. Empty results show "No matches."
+
+---
+
 ## [0.2.0] — Stage 4b: readable destination rows
 
 - **"Zone - point" labels.** Nested destinations (homepoints, waypoints, abyssea

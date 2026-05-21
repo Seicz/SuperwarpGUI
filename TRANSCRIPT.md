@@ -68,3 +68,20 @@ rows labeled "Zone - point".
   systems' counts.
 
 Shipped `superwarp-gui-v0.2.0.zip`. Next: continued polish per user reaction.
+
+---
+
+## Session — Stage 4c: global search (GUI v0.3.0)
+
+**Request:** search should span all systems, each result tagged with its system at
+the end; no tag when browsing a single system (search empty).
+
+**Built (0.3.0):** render_destinations now builds its row set two ways -- selected
+system only when the search is empty (no tag), or every matching destination across
+all systems when searching (each row tagged `[<system long>]` in violet on the
+right). Per-row unlock dot, affordability, and warp target all key off the row's own
+system. Rows sort by zone -> sub (numeric-aware) -> system so same-named zones
+cluster across systems. Search hint changed to "search all systems...". Empty-result
+state shows "No matches."
+
+Shipped `superwarp-gui-v0.3.0.zip`.

@@ -39,7 +39,7 @@ const LOCKED: Color32 = Color32::from_rgb(208, 85, 107); // muted rose
 const UNLOCKED: Color32 = Color32::from_rgb(79, 208, 138); // aether green
 const GOLD: Color32 = Color32::from_rgb(220, 188, 110); // currency
 
-const GUI_VERSION: &str = "0.2.0";
+const GUI_VERSION: &str = "0.3.0";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -812,15 +812,13 @@ impl WarpApp {
             });
         });
 
-        // search
+        // search (global across all systems)
         let search = egui::TextEdit::singleline(&mut self.search)
-            .hint_text(
-                RichText::new(format!("search {}...", if plural.is_empty() { "destinations" } else { &plural }))
-                    .color(MUTED),
-            )
+            .hint_text(RichText::new("search all systems...").color(MUTED))
             .desired_width(f32::INFINITY)
             .font(FontId::monospace(12.0));
         ui.add(search);
+        let _ = plural;
         ui.add_space(4.0);
 
         // accent separator
@@ -832,36 +830,63 @@ impl WarpApp {
         );
         ui.add_space(4.0);
 
-        // gather rows (clone to avoid borrow conflict when clicking warp)
+        // Build the rows to show. With an empty search we browse the selected
+        // system (no system tag). With a search we match across every system and
+        // tag each row with the system it belongs to.
         let needle = self.search.to_lowercase();
-        let mut dests: Vec<Dest> = self
-            .systems
-            .iter()
-            .find(|s| s.key == system)
-            .map(|s| s.destinations.clone())
-            .unwrap_or_default();
+        let global = !needle.is_empty();
 
-        // Flat list, but sorted so a zone's points cluster and number in order:
-        // by zone, then by sub read as a number when it is one, else by text.
-        dests.sort_by(|a, b| {
+        // rows: (system_key, system_long, Dest)
+        let mut rows: Vec<(String, String, Dest)> = Vec::new();
+        if global {
+            for s in &self.systems {
+                let long = if s.long.is_empty() { s.key.clone() } else { s.long.clone() };
+                for d in &s.destinations {
+                    if dest_matches(d, &needle) {
+                        rows.push((s.key.clone(), long.clone(), d.clone()));
+                    }
+                }
+            }
+        } else if let Some(s) = self.systems.iter().find(|s| s.key == system) {
+            let long = if s.long.is_empty() { s.key.clone() } else { s.long.clone() };
+            for d in &s.destinations {
+                rows.push((s.key.clone(), long.clone(), d.clone()));
+            }
+        }
+
+        // Sort by zone, then sub (numeric-aware), then system -- so a zone's
+        // points cluster and number in order, and same-named zones from different
+        // systems sit together under a search.
+        rows.sort_by(|(ak, _, a), (bk, _, b)| {
             a.zone
                 .to_lowercase()
                 .cmp(&b.zone.to_lowercase())
                 .then_with(|| sub_order(&a.sub).cmp(&sub_order(&b.sub)))
                 .then_with(|| sub_text(&a.sub).cmp(&sub_text(&b.sub)))
+                .then_with(|| ak.cmp(bk))
         });
 
         let can_warp = self.conn.is_some() && !self.busy;
 
+        if rows.is_empty() {
+            ui.label(
+                RichText::new(if global {
+                    "No matches."
+                } else {
+                    "No destinations."
+                })
+                .color(MUTED)
+                .font(FontId::monospace(12.0)),
+            );
+            return;
+        }
+
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
-                for d in &dests {
-                    if !needle.is_empty() && !dest_matches(d, &needle) {
-                        continue;
-                    }
-                    let unlocked = self.dest_unlocked(&system, d);
-                    let afford = match (d.cost, self.system_currency(&system)) {
+                for (sys, sys_long, d) in &rows {
+                    let unlocked = self.dest_unlocked(sys, d);
+                    let afford = match (d.cost, self.system_currency(sys)) {
                         (Some(cost), Some(c)) => Some(c.value >= cost),
                         _ => None,
                     };
@@ -896,12 +921,19 @@ impl WarpApp {
                             .corner_radius(CornerRadius::same(3)),
                         );
                         if resp.clicked() {
-                            self.warp_to(&system, &d.zone, &d.sub);
-                            self.log("info", &format!("-> warp {} / {}", system, display));
+                            self.warp_to(sys, &d.zone, &d.sub);
+                            self.log("info", &format!("-> warp {} / {}", sys, display));
                         }
 
-                        // cost / affordability
+                        // right side: system tag (only while searching) then cost
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if global {
+                                ui.label(
+                                    RichText::new(format!("[{}]", sys_long))
+                                        .color(VIOLET)
+                                        .font(FontId::monospace(10.0)),
+                                );
+                            }
                             if let Some(cost) = d.cost {
                                 let col = match afford {
                                     Some(false) => LOCKED,
