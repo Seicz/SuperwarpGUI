@@ -44,3 +44,27 @@ builds locally with `cargo build --release`.
 **Shipped:** `superwarp-gui-v0.1.0.zip`. Next: live compile + react (theme/layout
 are the user's call given the high visual bar), then Stage 4b polish — richer
 unlock checklist, cross-system search, conveniences.
+
+---
+
+## Session — Stage 4b: readable rows (GUI v0.2.0)
+
+**Live result of 0.1.0:** ran an hour, connected, sidebar populated, state dots
+correct (lone locked Toraimarai Canal among unlocked homepoints), warps landing,
+currency refreshing on scan/warp (gil 298,678,681). Compiled clean bar three
+dead-code warnings (`short`, `count`, `updated` deserialized but unused).
+
+**Issue spotted in the render:** nested entries showed as bare sub-keys ("1",
+"3", ...) with zone context lost and scattered through hash order. User chose flat
+rows labeled "Zone - point".
+
+**Built (0.2.0):**
+- Row label = `"{zone} - {point}"` for nested, plain label for flat.
+- Sort by (zone, numeric-sub-then-text) so a zone's points cluster and number in
+  order.
+- Folded the three flagged fields into display (clearing the warnings): `count` ->
+  "{n} destinations" in sidebar pre-capture; `short` -> violet "[hp]" header tag;
+  `updated` -> "scanned Nm ago"; plus a "~partial" suffix on accumulating gated
+  systems' counts.
+
+Shipped `superwarp-gui-v0.2.0.zip`. Next: continued polish per user reaction.

@@ -5,6 +5,25 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.2.0] — Stage 4b: readable destination rows
+
+- **"Zone - point" labels.** Nested destinations (homepoints, waypoints, abyssea
+  confluxes, escha portals) previously rendered as bare sub-keys ("1", "3", ...)
+  with the zone lost. Each nested row now reads "Zone - point"; flat entries are
+  unchanged.
+- **Sorted list.** Destinations sort by zone, then by sub read as a number when it
+  is one (so "1, 2, ..., 10" order rather than lexical) and by text otherwise — so
+  a zone's points cluster and number in order instead of scattering through the
+  addon's hash order.
+- **Folded in the three deserialized-but-unused fields** (clearing the dead-code
+  warnings): system `count` shows as "{n} destinations" in the sidebar before any
+  unlock data is captured; `short` shows as a violet "[hp]" tag in the header;
+  `updated` drives a "scanned 4m ago" age next to the system name.
+- **Partial signal.** Zone-gated systems whose coverage is still accumulating
+  (abyssea/escha) show "~partial" after their sidebar unlock count.
+
+---
+
 ## [0.1.0] — Stage 4a: foundation
 
 First compiling cut: the bridge, the protocol, and a usable browse/warp UI.

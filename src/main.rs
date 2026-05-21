@@ -39,7 +39,7 @@ const LOCKED: Color32 = Color32::from_rgb(208, 85, 107); // muted rose
 const UNLOCKED: Color32 = Color32::from_rgb(79, 208, 138); // aether green
 const GOLD: Color32 = Color32::from_rgb(220, 188, 110); // currency
 
-const GUI_VERSION: &str = "0.1.0";
+const GUI_VERSION: &str = "0.2.0";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -210,6 +210,7 @@ impl Config {
 #[derive(Default, Clone)]
 struct SystemUnlocks {
     partial: bool,
+    updated: i64,
     currency: Option<Currency>,
     dests: HashMap<String, bool>,
 }
@@ -224,13 +225,14 @@ fn destkey(zone: &str, sub: &Option<String>) -> String {
 }
 
 impl SystemUnlocks {
-    fn from_msg(partial: bool, currency: Option<Currency>, dests: &[UnlockDest]) -> Self {
+    fn from_msg(partial: bool, updated: i64, currency: Option<Currency>, dests: &[UnlockDest]) -> Self {
         let mut map = HashMap::new();
         for d in dests {
             map.insert(destkey(&d.zone, &d.sub), d.unlocked);
         }
         SystemUnlocks {
             partial,
+            updated,
             currency,
             dests: map,
         }
@@ -462,15 +464,16 @@ impl WarpApp {
             }
             ServerMsg::Unlocks {
                 system,
+                updated,
                 partial,
                 currency,
                 destinations,
-                ..
             } => {
                 // A per-system delta merges into the existing cache so zone-gated
                 // systems accumulate across captures.
                 let entry = self.unlocks.entry(system).or_default();
                 entry.partial = partial;
+                entry.updated = updated;
                 if currency.is_some() {
                     entry.currency = currency;
                 }
@@ -480,7 +483,7 @@ impl WarpApp {
             }
             ServerMsg::UnlocksAll { systems } => {
                 for s in systems {
-                    let su = SystemUnlocks::from_msg(s.partial, s.currency, &s.destinations);
+                    let su = SystemUnlocks::from_msg(s.partial, s.updated, s.currency, &s.destinations);
                     self.unlocks.insert(s.system, su);
                 }
             }
@@ -500,6 +503,17 @@ impl WarpApp {
 
     fn system_currency(&self, system: &str) -> Option<&Currency> {
         self.unlocks.get(system).and_then(|su| su.currency.as_ref())
+    }
+
+    fn system_partial(&self, system: &str) -> bool {
+        self.unlocks.get(system).map(|su| su.partial).unwrap_or(false)
+    }
+
+    fn system_updated(&self, system: &str) -> Option<i64> {
+        self.unlocks
+            .get(system)
+            .map(|su| su.updated)
+            .filter(|u| *u > 0)
     }
 
     // unlocked / total counted only over destinations we have state for.
@@ -681,7 +695,7 @@ impl WarpApp {
             .auto_shrink([false; 2])
             .show(ui, |ui| {
                 // clone keys/labels we need to avoid borrow conflicts on click
-                let rows: Vec<(String, String, Option<(usize, usize)>)> = self
+                let rows: Vec<(String, String, Option<(usize, usize)>, bool, u32)> = self
                     .systems
                     .iter()
                     .map(|s| {
@@ -690,11 +704,17 @@ impl WarpApp {
                         } else {
                             s.long.clone()
                         };
-                        (s.key.clone(), label, self.unlock_counts(s))
+                        (
+                            s.key.clone(),
+                            label,
+                            self.unlock_counts(s),
+                            self.system_partial(&s.key),
+                            s.count,
+                        )
                     })
                     .collect();
 
-                for (key, label, counts) in rows {
+                for (key, label, counts, partial, total) in rows {
                     let selected = self.selected_system.as_deref() == Some(key.as_str());
                     let resp = ui.selectable_label(
                         selected,
@@ -702,13 +722,25 @@ impl WarpApp {
                             .color(if selected { WHITE } else { TEXT })
                             .font(FontId::monospace(12.0)),
                     );
-                    if let Some((open, known)) = counts {
-                        let col = if open == known { UNLOCKED } else { MUTED };
-                        ui.label(
-                            RichText::new(format!("   {}/{} unlocked", open, known))
-                                .color(col)
-                                .font(FontId::monospace(9.0)),
-                        );
+                    match counts {
+                        Some((open, known)) => {
+                            let col = if open == known { UNLOCKED } else { MUTED };
+                            let suffix = if partial { " ~partial" } else { "" };
+                            ui.label(
+                                RichText::new(format!("   {}/{} unlocked{}", open, known, suffix))
+                                    .color(col)
+                                    .font(FontId::monospace(9.0)),
+                            );
+                        }
+                        None => {
+                            if total > 0 {
+                                ui.label(
+                                    RichText::new(format!("   {} destinations", total))
+                                        .color(MUTED)
+                                        .font(FontId::monospace(9.0)),
+                                );
+                            }
+                        }
                     }
                     if resp.clicked() {
                         self.selected_system = Some(key.clone());
@@ -733,12 +765,12 @@ impl WarpApp {
         };
 
         // header row: system name, scan, currency
-        let (long, plural) = self
+        let (long, short, plural) = self
             .systems
             .iter()
             .find(|s| s.key == system)
-            .map(|s| (s.long.clone(), s.plural.clone()))
-            .unwrap_or((system.clone(), String::new()));
+            .map(|s| (s.long.clone(), s.short.clone(), s.plural.clone()))
+            .unwrap_or((system.clone(), String::new(), String::new()));
 
         ui.horizontal(|ui| {
             ui.label(
@@ -747,6 +779,20 @@ impl WarpApp {
                     .strong()
                     .font(FontId::monospace(14.0)),
             );
+            if !short.is_empty() {
+                ui.label(
+                    RichText::new(format!("[{}]", short))
+                        .color(VIOLET)
+                        .font(FontId::monospace(11.0)),
+                );
+            }
+            if let Some(u) = self.system_updated(&system) {
+                ui.label(
+                    RichText::new(format!("scanned {}", time_ago(u)))
+                        .color(MUTED)
+                        .font(FontId::monospace(10.0)),
+                );
+            }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let scan_btn = egui::Button::new(
                     RichText::new("scan").color(WHITE).font(FontId::monospace(11.0)),
@@ -788,12 +834,22 @@ impl WarpApp {
 
         // gather rows (clone to avoid borrow conflict when clicking warp)
         let needle = self.search.to_lowercase();
-        let dests: Vec<Dest> = self
+        let mut dests: Vec<Dest> = self
             .systems
             .iter()
             .find(|s| s.key == system)
             .map(|s| s.destinations.clone())
             .unwrap_or_default();
+
+        // Flat list, but sorted so a zone's points cluster and number in order:
+        // by zone, then by sub read as a number when it is one, else by text.
+        dests.sort_by(|a, b| {
+            a.zone
+                .to_lowercase()
+                .cmp(&b.zone.to_lowercase())
+                .then_with(|| sub_order(&a.sub).cmp(&sub_order(&b.sub)))
+                .then_with(|| sub_text(&a.sub).cmp(&sub_text(&b.sub)))
+        });
 
         let can_warp = self.conn.is_some() && !self.busy;
 
@@ -819,7 +875,12 @@ impl WarpApp {
                         };
                         ui.label(RichText::new(glyph).color(gcol).font(FontId::monospace(12.0)));
 
-                        // label (click to warp)
+                        // label (click to warp): "Zone - point" for nested, plain
+                        // zone label for flat entries.
+                        let display = match &d.sub {
+                            Some(_) => format!("{} - {}", d.zone, d.label),
+                            None => d.label.clone(),
+                        };
                         let label_col = match unlocked {
                             Some(false) => MUTED,
                             _ => TEXT,
@@ -827,7 +888,7 @@ impl WarpApp {
                         let resp = ui.add_enabled(
                             can_warp,
                             egui::Button::new(
-                                RichText::new(&d.label)
+                                RichText::new(&display)
                                     .color(label_col)
                                     .font(FontId::monospace(12.0)),
                             )
@@ -836,7 +897,7 @@ impl WarpApp {
                         );
                         if resp.clicked() {
                             self.warp_to(&system, &d.zone, &d.sub);
-                            self.log("info", &format!("-> warp {} / {}", system, d.label));
+                            self.log("info", &format!("-> warp {} / {}", system, display));
                         }
 
                         // cost / affordability
@@ -896,6 +957,44 @@ fn dest_matches(d: &Dest, needle: &str) -> bool {
         return true;
     }
     d.aliases.iter().any(|a| a.to_lowercase().contains(needle))
+}
+
+// numeric / text sort keys for a destination's sub, so "1,2,...,10" order
+// naturally and named subs fall back to text. Numeric subs sort before named.
+fn sub_order(sub: &Option<String>) -> (u8, u64) {
+    match sub {
+        None => (0, 0),
+        Some(s) => match s.parse::<u64>() {
+            Ok(n) => (1, n),
+            Err(_) => (2, 0),
+        },
+    }
+}
+
+fn sub_text(sub: &Option<String>) -> String {
+    sub.clone().unwrap_or_default().to_lowercase()
+}
+
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+fn time_ago(updated: i64) -> String {
+    let secs = (now_unix() - updated).max(0);
+    if secs < 10 {
+        "just now".to_string()
+    } else if secs < 60 {
+        format!("{}s ago", secs)
+    } else if secs < 3600 {
+        format!("{}m ago", secs / 60)
+    } else if secs < 86400 {
+        format!("{}h ago", secs / 3600)
+    } else {
+        format!("{}d ago", secs / 86400)
+    }
 }
 
 fn fmt_thousands(n: i64) -> String {
