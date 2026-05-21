@@ -5,6 +5,13 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.3.1] — fix header glyph
+
+- The header mark was `✦` (U+2726), which egui's default font doesn't include, so
+  it rendered as a tofu box. Swapped for `»` (Latin-1, always present), still azure.
+
+---
+
 ## [0.3.0] — global search
 
 - **Search is now global.** Typing in the search box matches destinations across

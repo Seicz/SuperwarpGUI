@@ -39,7 +39,7 @@ const LOCKED: Color32 = Color32::from_rgb(208, 85, 107); // muted rose
 const UNLOCKED: Color32 = Color32::from_rgb(79, 208, 138); // aether green
 const GOLD: Color32 = Color32::from_rgb(220, 188, 110); // currency
 
-const GUI_VERSION: &str = "0.3.0";
+const GUI_VERSION: &str = "0.3.1";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -582,7 +582,7 @@ fn setup_aether_theme(ctx: &egui::Context) {
 impl WarpApp {
     fn render_header(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("✦").font(FontId::monospace(16.0)).color(AZURE));
+            ui.label(RichText::new("»").font(FontId::monospace(16.0)).color(AZURE));
             ui.label(
                 RichText::new("superwarp")
                     .font(FontId::monospace(16.0))
