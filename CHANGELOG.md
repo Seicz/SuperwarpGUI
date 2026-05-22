@@ -5,6 +5,16 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.3.2] — fix header collision
+
+- The destination header crammed title + `[short]` + "scanned ago" + currency +
+  scan onto one row; a wide balance (nine-figure gil) right-aligned and overflowed
+  leftward into the freshness text, overlapping it. Split into two rows: title and
+  the scan button on top, currency (left) and "scanned N ago" (right) on a metadata
+  line below. No collision regardless of balance width.
+
+---
+
 ## [0.3.1] — fix header glyph
 
 - The header mark was `✦` (U+2726), which egui's default font doesn't include, so

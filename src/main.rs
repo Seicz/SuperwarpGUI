@@ -39,7 +39,7 @@ const LOCKED: Color32 = Color32::from_rgb(208, 85, 107); // muted rose
 const UNLOCKED: Color32 = Color32::from_rgb(79, 208, 138); // aether green
 const GOLD: Color32 = Color32::from_rgb(220, 188, 110); // currency
 
-const GUI_VERSION: &str = "0.3.1";
+const GUI_VERSION: &str = "0.3.2";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -786,13 +786,6 @@ impl WarpApp {
                         .font(FontId::monospace(11.0)),
                 );
             }
-            if let Some(u) = self.system_updated(&system) {
-                ui.label(
-                    RichText::new(format!("scanned {}", time_ago(u)))
-                        .color(MUTED)
-                        .font(FontId::monospace(10.0)),
-                );
-            }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let scan_btn = egui::Button::new(
                     RichText::new("scan").color(WHITE).font(FontId::monospace(11.0)),
@@ -802,15 +795,32 @@ impl WarpApp {
                 if ui.add_enabled(self.conn.is_some() && !self.busy, scan_btn).clicked() {
                     self.scan(&system);
                 }
-                if let Some(c) = self.system_currency(&system) {
-                    ui.label(
-                        RichText::new(format!("{}: {}", c.name, fmt_thousands(c.value)))
-                            .color(GOLD)
-                            .font(FontId::monospace(11.0)),
-                    );
-                }
             });
         });
+
+        // metadata line: currency (left) and capture freshness (right). Kept off
+        // the title row so a wide balance (e.g. nine-figure gil) can't collide with
+        // the freshness text.
+        let updated = self.system_updated(&system);
+        let currency_txt = self
+            .system_currency(&system)
+            .map(|c| format!("{}: {}", c.name, fmt_thousands(c.value)));
+        if currency_txt.is_some() || updated.is_some() {
+            ui.horizontal(|ui| {
+                if let Some(txt) = &currency_txt {
+                    ui.label(RichText::new(txt).color(GOLD).font(FontId::monospace(11.0)));
+                }
+                if let Some(u) = updated {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(format!("scanned {}", time_ago(u)))
+                                .color(MUTED)
+                                .font(FontId::monospace(10.0)),
+                        );
+                    });
+                }
+            });
+        }
 
         // search (global across all systems)
         let search = egui::TextEdit::singleline(&mut self.search)

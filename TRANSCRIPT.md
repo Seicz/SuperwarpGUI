@@ -85,3 +85,14 @@ cluster across systems. Search hint changed to "search all systems...". Empty-re
 state shows "No matches."
 
 Shipped `superwarp-gui-v0.3.0.zip`.
+
+---
+
+## Session — Stage 4 fix: header collision (GUI v0.3.2)
+
+After the addon libs/ reorg (v1.3.3) loaded clean, a screenshot showed the
+destination header overlapping: right-aligned currency (nine-figure gil) overflowed
+left into the left-flow "scanned ago" text. Root cause: too much on one row. Fixed
+by splitting the header -- title + `[short]` + scan on row 1; currency (left) +
+"scanned N ago" (right) on a metadata row 2. Robust to any balance width.
+Shipped `superwarp-gui-v0.3.2.zip`.
