@@ -82,7 +82,7 @@ impl Dispatch {
     }
 }
 
-const GUI_VERSION: &str = "0.6.0";
+const GUI_VERSION: &str = "0.6.1";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -1452,6 +1452,7 @@ impl eframe::App for WarpApp {
         egui::SidePanel::left("systems")
             .resizable(true)
             .default_width(190.0)
+            .width_range(120.0..=360.0)
             .frame(egui::Frame::NONE.fill(BG).inner_margin(Margin::symmetric(10, 8)))
             .show(ctx, |ui| self.render_systems(ui));
 
@@ -1469,7 +1470,7 @@ fn main() -> eframe::Result<()> {
     let cfg = Config::load();
 
     let mut viewport = egui::ViewportBuilder::default()
-        .with_min_inner_size([520.0, 420.0])
+        .with_min_inner_size([300.0, 360.0])
         .with_title("superwarp — FFXI");
 
     if let (Some(w), Some(h)) = (cfg.window_w, cfg.window_h) {

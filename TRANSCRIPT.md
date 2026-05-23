@@ -139,3 +139,15 @@ on release the tab eases from cursor into its slot. Offsets are relative to the 
 top so scrolling doesn't retrigger animation. Persists as before; new systems append.
 Easing is one tunable constant. Flagged: passes brace/symbol checks but not a real
 cargo build, and the motion will want local visual tuning. GUI-only; v0.6.0.
+
+---
+
+## Session (GUI v0.6.1) -- smaller minimum window width
+
+**Eric:** [screenshot] egui won't let me shrink the window horizontally any further;
+want to shrink it more to remove the free space on the right / reclaim screen space.
+
+**Claude:** Root cause was `with_min_inner_size([520, 420])` -- eframe passes that to
+the OS as a hard window-size floor. Lowered to [300, 360], and added a sidebar
+width_range(120..=360) (default still 190) so a narrow window can give the freed
+space to the destination list rather than the sidebar holding it. v0.6.1.

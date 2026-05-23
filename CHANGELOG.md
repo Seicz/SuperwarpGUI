@@ -5,6 +5,13 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.6.1] -- smaller minimum window width
+
+The window had a hard 520px-wide floor (`with_min_inner_size`), so it couldn't be
+dragged narrow enough to shed the empty space on the right. Lowered the minimum to
+300x360, and gave the systems sidebar a draggable `width_range` (120-360, default
+still 190) so a narrow window can hand the freed width to the destination list.
+
 ## [0.6.0] -- animated drag-to-reorder (lift / slide-apart / settle)
 
 Replaces v0.5.0's static reorder with a fully animated one:
