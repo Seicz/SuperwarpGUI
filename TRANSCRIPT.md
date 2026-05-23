@@ -181,3 +181,19 @@ to confirm on Eric's machine.
 replaced it with painted geometry: a violet-back + azure-front double-chevron drawn
 via line_segment + round caps, sharp ~60deg. Also regenerated the icon with a matching
 sharp angle (was ~120deg/blunt; dx/half ratio raised). Both now share the look. v0.7.1.
+
+---
+
+## Session (GUI v0.8.0) -- fuzzy search
+
+**Eric:** Apply the same fuzzy logic to the GUI search that the in-game addon has.
+
+**Claude:** Ported fuzzyfind (lean) to Rust: the gap-aware subsequence scorer
+(fuzzy_score), Wagner-Fischer Levenshtein (fuzzy_lev), clean(), and the exact/
+fuzzy/approx tiers as dest_fuzzy + dest_approx over each dest's label/zone/aliases.
+Adapted from "pick one winner" to "filter + rank a list": search results now rank
+best-first by score; if nothing is a subsequence, the closest-by-edit-distance are
+shown under a "closest:" note rather than an empty result. Browse mode keeps the
+alphabetical/numeric ordering. Verified the port byte-identical to the addon's Lua
+scorer via a Python mirror diffed against lua5.1 across subsequence/nil/Levenshtein
+cases. GUI-only; v0.8.0.

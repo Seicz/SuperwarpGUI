@@ -82,7 +82,7 @@ impl Dispatch {
     }
 }
 
-const GUI_VERSION: &str = "0.7.1";
+const GUI_VERSION: &str = "0.8.0";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -1160,8 +1160,8 @@ impl WarpApp {
         // Build the rows to show. With an empty search we browse the selected
         // system (no system tag). With a search we match across every system and
         // tag each row with the system it belongs to.
-        let needle = self.search.to_lowercase();
-        let global = !needle.is_empty();
+        let needle_clean = fuzzy_clean(&self.search);
+        let global = !needle_clean.is_empty();
 
         // ACTIONS submenu: the selected system's sub-commands (enter/exit/port/
         // set/...) plus cancel/reset. Hidden during a global search since the
@@ -1216,33 +1216,67 @@ impl WarpApp {
 
         // rows: (system_key, system_long, Dest)
         let mut rows: Vec<(String, String, Dest)> = Vec::new();
+        let mut approx_note = false;
         if global {
+            // Fuzzy match across every system, same tiers as the addon's
+            // fuzzyfind: exact -> gap-aware subsequence -> closest by edit
+            // distance. Ranked best-first rather than alphabetically.
+            let mut scored: Vec<(i64, String, String, Dest)> = Vec::new();
             for s in &self.systems {
                 let long = if s.long.is_empty() { s.key.clone() } else { s.long.clone() };
                 for d in &s.destinations {
-                    if dest_matches(d, &needle) {
-                        rows.push((s.key.clone(), long.clone(), d.clone()));
+                    if let Some(sc) = dest_fuzzy(d, &needle_clean) {
+                        scored.push((sc, s.key.clone(), long.clone(), d.clone()));
                     }
                 }
+            }
+            if scored.is_empty() {
+                // approx tier: nothing was a subsequence -> show the closest by
+                // normalized edit distance (graceful "did you mean", never empty).
+                let mut appr: Vec<(i64, String, String, Dest)> = Vec::new();
+                for s in &self.systems {
+                    let long = if s.long.is_empty() { s.key.clone() } else { s.long.clone() };
+                    for d in &s.destinations {
+                        appr.push((
+                            dest_approx(d, &needle_clean),
+                            s.key.clone(),
+                            long.clone(),
+                            d.clone(),
+                        ));
+                    }
+                }
+                appr.sort_by(|a, b| {
+                    b.0.cmp(&a.0)
+                        .then_with(|| a.3.label.len().cmp(&b.3.label.len()))
+                });
+                appr.truncate(12);
+                rows = appr.into_iter().map(|(_, k, l, d)| (k, l, d)).collect();
+                approx_note = !rows.is_empty();
+            } else {
+                // higher score first; ties -> shorter label, then zone name
+                scored.sort_by(|a, b| {
+                    b.0.cmp(&a.0)
+                        .then_with(|| a.3.label.len().cmp(&b.3.label.len()))
+                        .then_with(|| a.3.zone.to_lowercase().cmp(&b.3.zone.to_lowercase()))
+                });
+                rows = scored.into_iter().map(|(_, k, l, d)| (k, l, d)).collect();
             }
         } else if let Some(s) = self.systems.iter().find(|s| s.key == system) {
             let long = if s.long.is_empty() { s.key.clone() } else { s.long.clone() };
             for d in &s.destinations {
                 rows.push((s.key.clone(), long.clone(), d.clone()));
             }
+            // Browse mode keeps the natural ordering: zone, then sub (numeric-
+            // aware), then system -- so a zone's points cluster and number in order.
+            rows.sort_by(|(ak, _, a), (bk, _, b)| {
+                a.zone
+                    .to_lowercase()
+                    .cmp(&b.zone.to_lowercase())
+                    .then_with(|| sub_order(&a.sub).cmp(&sub_order(&b.sub)))
+                    .then_with(|| sub_text(&a.sub).cmp(&sub_text(&b.sub)))
+                    .then_with(|| ak.cmp(bk))
+            });
         }
-
-        // Sort by zone, then sub (numeric-aware), then system -- so a zone's
-        // points cluster and number in order, and same-named zones from different
-        // systems sit together under a search.
-        rows.sort_by(|(ak, _, a), (bk, _, b)| {
-            a.zone
-                .to_lowercase()
-                .cmp(&b.zone.to_lowercase())
-                .then_with(|| sub_order(&a.sub).cmp(&sub_order(&b.sub)))
-                .then_with(|| sub_text(&a.sub).cmp(&sub_text(&b.sub)))
-                .then_with(|| ak.cmp(bk))
-        });
 
         let can_warp = self.conn.is_some() && !self.busy;
 
@@ -1257,6 +1291,15 @@ impl WarpApp {
                 .font(FontId::monospace(12.0)),
             );
             return;
+        }
+
+        if approx_note {
+            ui.label(
+                RichText::new("no direct match -- closest:")
+                    .color(MUTED)
+                    .font(FontId::monospace(10.0)),
+            );
+            ui.add_space(2.0);
         }
 
         egui::ScrollArea::vertical()
@@ -1359,14 +1402,229 @@ impl WarpApp {
     }
 }
 
-fn dest_matches(d: &Dest, needle: &str) -> bool {
-    if d.label.to_lowercase().contains(needle) {
-        return true;
+// ---------------------------------------------------------------------------
+// Fuzzy matching -- a faithful port of the in-game addon's fuzzyfind (lean).
+// Two algorithms, three tiers via dest_fuzzy/dest_approx below:
+//   * exact: cleaned candidate == cleaned needle.
+//   * fuzzy: needle is a subsequence of a candidate -> gap-aware fzf-style score
+//     (boundary / camelCase / consecutive bonuses, gap penalties) on the RAW
+//     candidate so case + separators carry signal.
+//   * approx: subsequence of nothing -> closest by normalized edit distance.
+// Lineage: research+assembly by Lili; gap-aware scorer + lean build by Eric
+// Strawser (Seicz@Bahamut). Ported to Rust for the GUI search.
+// ---------------------------------------------------------------------------
+
+const F_MATCH: i64 = 16;
+const F_GAP_START: i64 = -3;
+const F_GAP_EXT: i64 = -1;
+const F_BON_BOUNDARY: i64 = 8;
+const F_BON_CAMEL: i64 = 7;
+const F_BON_CONSEC: i64 = 8;
+const F_FIRST_MULT: i64 = 2;
+const F_NEG: i64 = -1_000_000_000;
+const FUZZY_EXACT: i64 = 1_000_000;
+
+#[derive(Clone, Copy, PartialEq)]
+enum Cls {
+    White,
+    NonWord,
+    Lower,
+    Upper,
+    Digit,
+}
+
+fn fclass(b: u8) -> Cls {
+    if b == b' ' || b == b'\t' {
+        Cls::White
+    } else if b.is_ascii_digit() {
+        Cls::Digit
+    } else if b.is_ascii_uppercase() {
+        Cls::Upper
+    } else if b.is_ascii_lowercase() {
+        Cls::Lower
+    } else {
+        Cls::NonWord
     }
-    if d.zone.to_lowercase().contains(needle) {
-        return true;
+}
+
+fn fis_word(c: Cls) -> bool {
+    matches!(c, Cls::Lower | Cls::Upper | Cls::Digit)
+}
+
+fn fbonus(prev: Cls, cur: Cls) -> i64 {
+    if !fis_word(cur) {
+        return 0;
     }
-    d.aliases.iter().any(|a| a.to_lowercase().contains(needle))
+    if prev == Cls::White || prev == Cls::NonWord {
+        return F_BON_BOUNDARY;
+    }
+    if prev == Cls::Lower && cur == Cls::Upper {
+        return F_BON_CAMEL;
+    }
+    if prev != Cls::Digit && cur == Cls::Digit {
+        return F_BON_CAMEL;
+    }
+    0
+}
+
+// needle: cleaned (lowercase, alnum-only). text: RAW. Returns the gap-aware
+// score, or None if needle is not a subsequence of text's alnum. O(m*n) with
+// 1-indexed scratch arrays to mirror the Lua exactly.
+fn fuzzy_score(needle: &str, text: &str) -> Option<i64> {
+    let nb = needle.as_bytes();
+    let tb = text.as_bytes();
+    let m = nb.len();
+    let n = tb.len();
+    if m == 0 || n == 0 {
+        return None;
+    }
+
+    let mut b = vec![0i64; n + 1];
+    let mut tl = vec![0u8; n + 1];
+    let mut prev = Cls::White;
+    for j in 1..=n {
+        let c = tb[j - 1];
+        let cl = fclass(c);
+        b[j] = fbonus(prev, cl);
+        tl[j] = c.to_ascii_lowercase();
+        prev = cl;
+    }
+
+    let mut hprev = vec![F_NEG; n + 1];
+    let mut hcur = vec![F_NEG; n + 1];
+    let p1 = nb[0].to_ascii_lowercase();
+    for j in 1..=n {
+        if tl[j] == p1 {
+            let lead = if j == 1 {
+                0
+            } else {
+                F_GAP_START + F_GAP_EXT * (j as i64 - 2)
+            };
+            hprev[j] = F_MATCH + b[j] * F_FIRST_MULT + lead;
+        } else {
+            hprev[j] = F_NEG;
+        }
+    }
+
+    for i in 2..=m {
+        let pi = nb[i - 1].to_ascii_lowercase();
+        let mut gbest = F_NEG; // max over k<=j-2 of Hprev[k] - GAP_EXT*k
+        for j in 1..=n {
+            let k = j as i64 - 2;
+            if k >= 1 {
+                let v = hprev[k as usize];
+                if v > F_NEG {
+                    let c = v - F_GAP_EXT * k;
+                    if c > gbest {
+                        gbest = c;
+                    }
+                }
+            }
+            if tl[j] == pi {
+                let mut best = F_NEG;
+                if j >= 2 && hprev[j - 1] > F_NEG {
+                    // consecutive
+                    let bb = if b[j] > F_BON_CONSEC { b[j] } else { F_BON_CONSEC };
+                    let a = hprev[j - 1] + bb;
+                    if a > best {
+                        best = a;
+                    }
+                }
+                if gbest > F_NEG {
+                    // gapped
+                    let bg = b[j] + F_GAP_START + F_GAP_EXT * (j as i64 - 2) + gbest;
+                    if bg > best {
+                        best = bg;
+                    }
+                }
+                hcur[j] = if best > F_NEG / 2 { F_MATCH + best } else { F_NEG };
+            } else {
+                hcur[j] = F_NEG;
+            }
+        }
+        hprev[..=n].copy_from_slice(&hcur[..=n]);
+    }
+
+    let mut best = F_NEG;
+    for j in m..=n {
+        if hprev[j] > best {
+            best = hprev[j];
+        }
+    }
+    if best <= F_NEG / 2 {
+        None
+    } else {
+        Some(best)
+    }
+}
+
+// Wagner-Fischer Levenshtein (two-row), approx fallback only.
+fn fuzzy_lev(a: &str, b: &str) -> usize {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    let col = b.len() + 1;
+    let mut prev: Vec<usize> = (0..col).collect();
+    let mut cur = vec![0usize; col];
+    for i in 1..=a.len() {
+        cur[0] = i;
+        for j in 1..col {
+            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
+            cur[j] = (prev[j] + 1).min(cur[j - 1] + 1).min(prev[j - 1] + cost);
+        }
+        std::mem::swap(&mut prev, &mut cur);
+    }
+    prev[col - 1]
+}
+
+fn fuzzy_clean(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
+// the searchable raw fields of a destination
+fn dest_fields(d: &Dest) -> Vec<&str> {
+    let mut v: Vec<&str> = vec![d.label.as_str(), d.zone.as_str()];
+    for a in &d.aliases {
+        v.push(a.as_str());
+    }
+    v
+}
+
+// exact/subsequence score for a destination, or None if no field matches.
+fn dest_fuzzy(d: &Dest, needle_clean: &str) -> Option<i64> {
+    let mut best: Option<i64> = None;
+    for raw in dest_fields(d) {
+        let v = if fuzzy_clean(raw) == needle_clean {
+            Some(FUZZY_EXACT)
+        } else {
+            fuzzy_score(needle_clean, raw)
+        };
+        if let Some(s) = v {
+            best = Some(match best {
+                Some(b) => b.max(s),
+                None => s,
+            });
+        }
+    }
+    best
+}
+
+// approx closeness in 0..=10000 (higher = closer), for the no-subsequence tier.
+fn dest_approx(d: &Dest, needle_clean: &str) -> i64 {
+    let mut best = 0i64;
+    let nlen = needle_clean.chars().count();
+    for raw in dest_fields(d) {
+        let cl = fuzzy_clean(raw);
+        let denom = nlen.max(cl.chars().count()).max(1);
+        let lev = fuzzy_lev(needle_clean, &cl);
+        let sim = 10000 - (lev * 10000 / denom) as i64;
+        if sim > best {
+            best = sim;
+        }
+    }
+    best
 }
 
 // numeric / text sort keys for a destination's sub, so "1,2,...,10" order

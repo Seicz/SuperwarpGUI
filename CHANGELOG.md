@@ -5,6 +5,20 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.8.0] -- fuzzy search (matches the in-game addon)
+
+The search box now uses the same matcher as the addon's fuzzyfind, ported to Rust
+and verified byte-identical to the Lua scorer:
+- **Exact -> subsequence -> approx** tiers. Typing an abbreviation like `altcav`
+  finds "Abyssea - Altepa - Cavernous Maw"; `atto00` finds "Attohwa - 00". Matching
+  is a gap-aware fzf-style score (boundary / camelCase / consecutive bonuses, gap
+  penalties) over each destination's label, zone, and aliases.
+- **Ranked best-first** while searching (was plain alphabetical). Browsing a single
+  system still uses the natural zone / numeric-sub ordering.
+- **Graceful fallback:** if nothing is a subsequence (a typo), the closest matches
+  by edit distance are shown under a "no direct match -- closest:" note, instead of
+  a dead "No matches" -- mirroring the addon's never-nil behavior.
+
 ## [0.7.1] -- multicolor banner chevron + sharper icon angle
 
 - The header banner's "»" is now a **painted multicolor double-chevron** (violet
