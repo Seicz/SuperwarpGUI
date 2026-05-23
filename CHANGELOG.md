@@ -5,6 +5,21 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.4.0] -- dispatch toggle + sub-command submenu
+
+- **Send toggle** in the warp-panel header, cycling **Off -> Party -> All**
+  (muted / azure / coral). Controls whether destination warps, sub-commands, and
+  cancel go to just this character, the party, or every connected character.
+  Defaults to Off on every launch (safety).
+- **ACTIONS submenu** under the search bar: the selected system's sub-commands
+  (enter / exit / port / return / next / set / ...) as clickable chips, plus a
+  cancel / reset chip. Hidden during a global search. Each chip honors the Send
+  toggle (e.g. fire "enter" for the whole party).
+- Destination clicks and the footer cancel now honor the Send toggle too.
+- Protocol: `warp_to` / `cancel` gained an optional `dispatch` field; added
+  `sub_cmd`. `SystemList` parses the catalogue's `subcommands`. Requires addon
+  v1.5.0+.
+
 ## [0.3.2] — fix header collision
 
 - The destination header crammed title + `[short]` + "scanned ago" + currency +

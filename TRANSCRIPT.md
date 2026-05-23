@@ -96,3 +96,13 @@ left into the left-flow "scanned ago" text. Root cause: too much on one row. Fix
 by splitting the header -- title + `[short]` + scan on row 1; currency (left) +
 "scanned N ago" (right) on a metadata row 2. Robust to any balance width.
 Shipped `superwarp-gui-v0.3.2.zip`.
+
+---
+
+## Session (GUI v0.4.0) -- dispatch toggle + sub-command submenu
+
+Added a Dispatch enum (Off/Party/All) with a cycling toggle button in the warp
+panel header, an ACTIONS submenu of sub-command chips + cancel/reset below the
+search, and a `subcommands` field on SystemList. warp_to/sub_cmd/cancel attach
+the dispatch token when not Off. Pairs with addon v1.5.0. Defaults to Off each
+launch for safety.

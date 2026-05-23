@@ -38,8 +38,51 @@ const WHITE: Color32 = Color32::from_rgb(245, 247, 255);
 const LOCKED: Color32 = Color32::from_rgb(208, 85, 107); // muted rose
 const UNLOCKED: Color32 = Color32::from_rgb(79, 208, 138); // aether green
 const GOLD: Color32 = Color32::from_rgb(220, 188, 110); // currency
+const PARTY_COL: Color32 = Color32::from_rgb(63, 200, 224); // party = azure
+const ALL_COL: Color32 = Color32::from_rgb(232, 138, 96); // all = warn coral
 
-const GUI_VERSION: &str = "0.3.2";
+// Where a warp / sub-command is sent: just this character, the party, or every
+// connected character. Mirrors superwarp's all/party tokens.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Dispatch {
+    Off,
+    Party,
+    All,
+}
+
+impl Dispatch {
+    fn next(self) -> Self {
+        match self {
+            Dispatch::Off => Dispatch::Party,
+            Dispatch::Party => Dispatch::All,
+            Dispatch::All => Dispatch::Off,
+        }
+    }
+    // the addon's dispatch token, or None for single-character.
+    fn token(self) -> Option<&'static str> {
+        match self {
+            Dispatch::Off => None,
+            Dispatch::Party => Some("party"),
+            Dispatch::All => Some("all"),
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Dispatch::Off => "Send: Off",
+            Dispatch::Party => "Send: Party",
+            Dispatch::All => "Send: ALL",
+        }
+    }
+    fn color(self) -> Color32 {
+        match self {
+            Dispatch::Off => MUTED,
+            Dispatch::Party => PARTY_COL,
+            Dispatch::All => ALL_COL,
+        }
+    }
+}
+
+const GUI_VERSION: &str = "0.4.0";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -82,6 +125,8 @@ struct SystemList {
     count: u32,
     #[serde(default)]
     destinations: Vec<Dest>,
+    #[serde(default)]
+    subcommands: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -270,6 +315,7 @@ struct WarpApp {
     // ui
     selected_system: Option<String>,
     search: String,
+    dispatch: Dispatch,
     log_lines: Vec<(String, String)>,
     config: Config,
     always_on_top: bool,
@@ -293,6 +339,7 @@ impl Default for WarpApp {
             unlocks: HashMap::new(),
             selected_system: None,
             search: String::new(),
+            dispatch: Dispatch::Off,
             log_lines: Vec::new(),
             config: Config::default(),
             always_on_top: false,
@@ -373,10 +420,30 @@ impl WarpApp {
     }
 
     fn warp_to(&mut self, system: &str, zone: &str, sub: &Option<String>) {
-        let cmd = match sub {
+        let mut cmd = match sub {
             Some(s) => serde_json::json!({"cmd":"warp_to","system":system,"zone":zone,"sub":s}),
             None => serde_json::json!({"cmd":"warp_to","system":system,"zone":zone}),
         };
+        if let Some(tok) = self.dispatch.token() {
+            cmd["dispatch"] = serde_json::Value::String(tok.to_string());
+        }
+        self.send(&cmd.to_string());
+    }
+
+    fn sub_cmd(&mut self, system: &str, sub: &str) {
+        let mut cmd = serde_json::json!({"cmd":"sub_cmd","system":system,"sub":sub});
+        if let Some(tok) = self.dispatch.token() {
+            cmd["dispatch"] = serde_json::Value::String(tok.to_string());
+        }
+        self.send(&cmd.to_string());
+    }
+
+    // cancel/reset, honoring the dispatch toggle (cancel all / cancel party).
+    fn cancel(&mut self) {
+        let mut cmd = serde_json::json!({"cmd":"cancel"});
+        if let Some(tok) = self.dispatch.token() {
+            cmd["dispatch"] = serde_json::Value::String(tok.to_string());
+        }
         self.send(&cmd.to_string());
     }
 
@@ -671,7 +738,7 @@ impl WarpApp {
                         .small_button(RichText::new("cancel").color(LOCKED))
                         .clicked()
                     {
-                        self.send(r#"{"cmd":"cancel"}"#);
+                        self.cancel();
                     }
                     ui.label(
                         RichText::new("BUSY")
@@ -795,6 +862,31 @@ impl WarpApp {
                 if ui.add_enabled(self.conn.is_some() && !self.busy, scan_btn).clicked() {
                     self.scan(&system);
                 }
+
+                // dispatch toggle: cycles Off -> Party -> All. Drives whether
+                // warps / sub-commands go to just this character, the party, or
+                // every connected character.
+                let dcol = self.dispatch.color();
+                let dfill = if self.dispatch == Dispatch::Off {
+                    PANEL
+                } else {
+                    Color32::from_rgba_unmultiplied(dcol.r(), dcol.g(), dcol.b(), 40)
+                };
+                let toggle = egui::Button::new(
+                    RichText::new(self.dispatch.label())
+                        .color(dcol)
+                        .font(FontId::monospace(11.0)),
+                )
+                .fill(dfill)
+                .stroke(Stroke::new(1.0, dcol))
+                .corner_radius(CornerRadius::same(3));
+                if ui
+                    .add(toggle)
+                    .on_hover_text("Send warps to: just you / your party / all your characters")
+                    .clicked()
+                {
+                    self.dispatch = self.dispatch.next();
+                }
             });
         });
 
@@ -845,6 +937,57 @@ impl WarpApp {
         // tag each row with the system it belongs to.
         let needle = self.search.to_lowercase();
         let global = !needle.is_empty();
+
+        // ACTIONS submenu: the selected system's sub-commands (enter/exit/port/
+        // set/...) plus cancel/reset. Hidden during a global search since the
+        // actions target the selected system. Honors the dispatch toggle, so a
+        // sub-command like "enter" can be fired for the whole party at once.
+        if !global {
+            let subs: Vec<String> = self
+                .systems
+                .iter()
+                .find(|s| s.key == system)
+                .map(|s| s.subcommands.clone())
+                .unwrap_or_default();
+            let can_act = self.conn.is_some() && !self.busy;
+            let mut clicked_sub: Option<String> = None;
+            let mut clicked_cancel = false;
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new("actions")
+                        .color(MUTED)
+                        .font(FontId::monospace(10.0)),
+                );
+                let cancel_chip = egui::Button::new(
+                    RichText::new("cancel / reset")
+                        .color(LOCKED)
+                        .font(FontId::monospace(11.0)),
+                )
+                .fill(PANEL)
+                .corner_radius(CornerRadius::same(3));
+                if ui.add(cancel_chip).clicked() {
+                    clicked_cancel = true;
+                }
+                for sc in &subs {
+                    let chip = egui::Button::new(
+                        RichText::new(sc).color(AZURE).font(FontId::monospace(11.0)),
+                    )
+                    .fill(PANEL)
+                    .corner_radius(CornerRadius::same(3));
+                    if ui.add_enabled(can_act, chip).clicked() {
+                        clicked_sub = Some(sc.clone());
+                    }
+                }
+            });
+            if clicked_cancel {
+                self.cancel();
+            }
+            if let Some(sc) = clicked_sub {
+                self.sub_cmd(&system, &sc);
+                self.log("info", &format!("-> {} {}", system, sc));
+            }
+            ui.add_space(4.0);
+        }
 
         // rows: (system_key, system_long, Dest)
         let mut rows: Vec<(String, String, Dest)> = Vec::new();
