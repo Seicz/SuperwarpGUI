@@ -1,6 +1,6 @@
 [package]
 name = "superwarp-gui"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 authors = ["Eric Strawser (Seicz@Bahamut)"]
 description = "External GUI for the superwarp FFXI addon fork — aether/warp themed"
@@ -9,6 +9,9 @@ description = "External GUI for the superwarp FFXI addon fork — aether/warp th
 eframe = "0.31"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+[build-dependencies]
+winresource = "0.1"
 
 [profile.release]
 opt-level = "z"        # Optimize for size

@@ -5,6 +5,22 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.7.0] -- app icon + authorship metadata
+
+The executable now carries the superwarp chevron icon and proper file identity
+instead of the default placeholder:
+- **Icon:** the violet/azure double-chevron (matching the GUI header), embedded as
+  a multi-size Win32 resource (16-256px) for Explorer, and set at runtime as the
+  title-bar / taskbar / alt-tab icon. Assets in `assets/icon.ico` + `assets/icon.png`.
+- **Properties -> Details:** ProductName, FileDescription, CompanyName
+  ("Eric Strawser (Seicz@Bahamut) - ITIWH.com"), LegalCopyright, and version are
+  embedded via a new `build.rs` using the `winresource` crate.
+
+Build notes: the resource embedding is Windows-only (no-op elsewhere) and soft-fails
+to a plain build with a cargo warning if no resource compiler (rc.exe / llvm-rc /
+windres) is present, so it never blocks a build. The runtime icon uses
+`eframe::icon_data::from_png_bytes` and is guarded, so it degrades gracefully too.
+
 ## [0.6.1] -- smaller minimum window width
 
 The window had a hard 520px-wide floor (`with_min_inner_size`), so it couldn't be

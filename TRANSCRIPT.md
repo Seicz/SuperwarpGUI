@@ -151,3 +151,21 @@ want to shrink it more to remove the free space on the right / reclaim screen sp
 the OS as a hard window-size floor. Lowered to [300, 360], and added a sidebar
 width_range(120..=360) (default still 190) so a narrow window can give the freed
 space to the destination list rather than the sidebar holding it. v0.6.1.
+
+---
+
+## Session (GUI v0.7.0) -- app icon + authorship metadata
+
+**Eric:** Give the exe authorship context and an icon (the blue chevron) instead of
+the default giant "E".
+
+**Claude:** Generated a chevron icon matching the GUI palette (deep-indigo rounded
+square, violet back + azure front double-chevron) via Pillow -> assets/icon.png
+(256) and assets/icon.ico (multi-size 16-256). Two-part wiring: (1) build.rs using
+the winresource crate embeds the .ico + VERSIONINFO (ProductName, FileDescription,
+CompanyName "Eric Strawser (Seicz@Bahamut) - ITIWH.com", LegalCopyright; version
+auto from CARGO_PKG_*) -> Explorer icon + Properties/Details; Windows-only, soft-fails
+to a warning if no resource compiler. (2) runtime with_icon via
+eframe::icon_data::from_png_bytes(include_bytes!) -> title-bar/taskbar icon, guarded.
+v0.7.0. Flagged: can't cargo-build here; winresource + from_png_bytes are the items
+to confirm on Eric's machine.

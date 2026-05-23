@@ -82,7 +82,7 @@ impl Dispatch {
     }
 }
 
-const GUI_VERSION: &str = "0.6.1";
+const GUI_VERSION: &str = "0.7.0";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -1472,6 +1472,11 @@ fn main() -> eframe::Result<()> {
     let mut viewport = egui::ViewportBuilder::default()
         .with_min_inner_size([300.0, 360.0])
         .with_title("superwarp — FFXI");
+
+    // title-bar / taskbar / alt-tab icon (replaces the default placeholder)
+    if let Ok(icon) = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png")) {
+        viewport = viewport.with_icon(std::sync::Arc::new(icon));
+    }
 
     if let (Some(w), Some(h)) = (cfg.window_w, cfg.window_h) {
         viewport = viewport.with_inner_size([w, h]);
