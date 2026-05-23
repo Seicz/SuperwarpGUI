@@ -82,7 +82,7 @@ impl Dispatch {
     }
 }
 
-const GUI_VERSION: &str = "0.4.0";
+const GUI_VERSION: &str = "0.5.0";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -218,6 +218,8 @@ struct Config {
     always_on_top: bool,
     #[serde(default)]
     last_system: Option<String>,
+    #[serde(default)]
+    system_order: Vec<String>,
     #[serde(skip)]
     dirty: bool,
 }
@@ -316,6 +318,7 @@ struct WarpApp {
     selected_system: Option<String>,
     search: String,
     dispatch: Dispatch,
+    drag_system: Option<String>,
     log_lines: Vec<(String, String)>,
     config: Config,
     always_on_top: bool,
@@ -340,6 +343,7 @@ impl Default for WarpApp {
             selected_system: None,
             search: String::new(),
             dispatch: Dispatch::Off,
+            drag_system: None,
             log_lines: Vec::new(),
             config: Config::default(),
             always_on_top: false,
@@ -751,6 +755,25 @@ impl WarpApp {
         });
     }
 
+    // The sidebar order: the persisted custom order, minus any systems no longer
+    // present, with any not-yet-ordered systems (new catalogue entries, freshly
+    // scanned systems) appended at the bottom so nothing ever silently vanishes.
+    fn effective_order(&self) -> Vec<String> {
+        let mut order: Vec<String> = self
+            .config
+            .system_order
+            .iter()
+            .filter(|k| self.systems.iter().any(|s| &s.key == *k))
+            .cloned()
+            .collect();
+        for s in &self.systems {
+            if !order.iter().any(|k| k == &s.key) {
+                order.push(s.key.clone());
+            }
+        }
+        order
+    }
+
     fn render_systems(&mut self, ui: &mut egui::Ui) {
         ui.label(
             RichText::new("SYSTEMS")
@@ -758,61 +781,152 @@ impl WarpApp {
                 .font(FontId::monospace(10.0)),
         );
         ui.add_space(2.0);
+
+        // Build the ordered, owned row data up front. This ends the immutable
+        // borrow of self.systems before we take &mut self for clicks/drags.
+        let order = self.effective_order();
+        let rows: Vec<(String, String, Option<(usize, usize)>, bool, u32)> = order
+            .iter()
+            .filter_map(|key| {
+                self.systems.iter().find(|s| &s.key == key).map(|s| {
+                    let label = if s.long.is_empty() {
+                        s.key.clone()
+                    } else {
+                        s.long.clone()
+                    };
+                    (
+                        s.key.clone(),
+                        label,
+                        self.unlock_counts(s),
+                        self.system_partial(&s.key),
+                        s.count,
+                    )
+                })
+            })
+            .collect();
+
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
-                // clone keys/labels we need to avoid borrow conflicts on click
-                let rows: Vec<(String, String, Option<(usize, usize)>, bool, u32)> = self
-                    .systems
-                    .iter()
-                    .map(|s| {
-                        let label = if s.long.is_empty() {
-                            s.key.clone()
-                        } else {
-                            s.long.clone()
-                        };
-                        (
-                            s.key.clone(),
-                            label,
-                            self.unlock_counts(s),
-                            self.system_partial(&s.key),
-                            s.count,
-                        )
-                    })
-                    .collect();
+                let dragging = self.drag_system.clone();
+                let mut clicked: Option<String> = None;
+                let mut row_rects: Vec<(String, egui::Rect)> = Vec::new();
 
-                for (key, label, counts, partial, total) in rows {
-                    let selected = self.selected_system.as_deref() == Some(key.as_str());
-                    let resp = ui.selectable_label(
-                        selected,
-                        RichText::new(&label)
-                            .color(if selected { WHITE } else { TEXT })
-                            .font(FontId::monospace(12.0)),
-                    );
-                    match counts {
-                        Some((open, known)) => {
-                            let col = if open == known { UNLOCKED } else { MUTED };
-                            let suffix = if partial { " ~partial" } else { "" };
+                for (key, label, counts, partial, total) in &rows {
+                    let is_sel = self.selected_system.as_deref() == Some(key.as_str());
+                    let is_drag = dragging.as_deref() == Some(key.as_str());
+                    let fill = if is_sel { HOVER } else { Color32::TRANSPARENT };
+
+                    // Render the row (name + count) inside a frame so a selected
+                    // row gets a background behind its text without paint-order
+                    // tricks. The frame's response rect is the whole row.
+                    let frame_resp = egui::Frame::NONE
+                        .fill(fill)
+                        .corner_radius(CornerRadius::same(3))
+                        .inner_margin(Margin::symmetric(4, 1))
+                        .show(ui, |ui| {
+                            let name_col = if is_drag {
+                                AZURE
+                            } else if is_sel {
+                                WHITE
+                            } else {
+                                TEXT
+                            };
                             ui.label(
-                                RichText::new(format!("   {}/{} unlocked{}", open, known, suffix))
-                                    .color(col)
-                                    .font(FontId::monospace(9.0)),
+                                RichText::new(label)
+                                    .color(name_col)
+                                    .font(FontId::monospace(12.0)),
                             );
-                        }
-                        None => {
-                            if total > 0 {
-                                ui.label(
-                                    RichText::new(format!("   {} destinations", total))
-                                        .color(MUTED)
+                            match counts {
+                                Some((open, known)) => {
+                                    let col = if open == known { UNLOCKED } else { MUTED };
+                                    let suffix = if *partial { " ~partial" } else { "" };
+                                    ui.label(
+                                        RichText::new(format!(
+                                            "   {}/{} unlocked{}",
+                                            open, known, suffix
+                                        ))
+                                        .color(col)
                                         .font(FontId::monospace(9.0)),
-                                );
+                                    );
+                                }
+                                None => {
+                                    if *total > 0 {
+                                        ui.label(
+                                            RichText::new(format!("   {} destinations", total))
+                                                .color(MUTED)
+                                                .font(FontId::monospace(9.0)),
+                                        );
+                                    }
+                                }
                             }
-                        }
+                        });
+
+                    let rect = frame_resp.response.rect;
+                    let id = ui.make_persistent_id(("sysdnd", key));
+                    let resp = ui.interact(rect, id, egui::Sense::click_and_drag());
+                    if resp.dragged() || resp.drag_started() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                    } else if resp.hovered() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+                    }
+                    if resp.drag_started() {
+                        self.drag_system = Some(key.clone());
                     }
                     if resp.clicked() {
-                        self.selected_system = Some(key.clone());
-                        self.config.last_system = Some(key.clone());
-                        self.config.mark_dirty();
+                        clicked = Some(key.clone());
+                    }
+                    row_rects.push((key.clone(), rect));
+                }
+
+                // selection (only fires on a clean click, never after a drag)
+                if let Some(sel) = clicked {
+                    self.selected_system = Some(sel.clone());
+                    self.config.last_system = Some(sel);
+                    self.config.mark_dirty();
+                }
+
+                // drag-to-reorder: while a row is held, show an insertion line at
+                // the nearest slot; on release, splice it in and persist the order.
+                if let Some(drag_key) = self.drag_system.clone() {
+                    let ptr = ui.input(|i| i.pointer.hover_pos());
+                    let released = ui.input(|i| i.pointer.any_released());
+                    if let Some(p) = ptr {
+                        let mut insert_idx = row_rects.len();
+                        for (idx, (_, r)) in row_rects.iter().enumerate() {
+                            if p.y < r.center().y {
+                                insert_idx = idx;
+                                break;
+                            }
+                        }
+                        if !row_rects.is_empty() {
+                            let xr = row_rects[0].1.x_range();
+                            let y = if insert_idx < row_rects.len() {
+                                row_rects[insert_idx].1.top()
+                            } else {
+                                row_rects[row_rects.len() - 1].1.bottom()
+                            };
+                            ui.painter().hline(xr, y, Stroke::new(2.0, AZURE));
+                        }
+                        if released {
+                            let mut new_order: Vec<String> =
+                                rows.iter().map(|(k, ..)| k.clone()).collect();
+                            if let Some(from) = new_order.iter().position(|k| k == &drag_key) {
+                                let k = new_order.remove(from);
+                                let mut to = insert_idx;
+                                if from < to {
+                                    to -= 1;
+                                }
+                                let to = to.min(new_order.len());
+                                new_order.insert(to, k);
+                                self.config.system_order = new_order;
+                                self.config.mark_dirty();
+                                self.config.save();
+                            }
+                            self.drag_system = None;
+                        }
+                    } else if released {
+                        self.drag_system = None;
                     }
                 }
             });

@@ -106,3 +106,18 @@ panel header, an ACTIONS submenu of sub-command chips + cancel/reset below the
 search, and a `subcommands` field on SystemList. warp_to/sub_cmd/cancel attach
 the dispatch token when not Off. Pairs with addon v1.5.0. Defaults to Off each
 launch for safety.
+
+---
+
+## Session (GUI v0.5.0) -- drag-to-reorder systems sidebar
+
+**Eric:** Considered a frequency-weighted auto-sort, then realized manual drag-and-
+drop snap-to makes more sense; wants the full list freely reorderable.
+
+**Claude:** Reinforced why manual beats auto (a launcher used by muscle memory must
+not reorder under you; frequency != priority). Implemented full-list drag-to-reorder
+in the sidebar: each row is a click_and_drag interact inside a Frame (selection bg
+without paint-order tricks); click selects, drag shows a snap-to insertion line and
+on release splices the row into the new slot. Order persists in superwarp_gui.json
+as `system_order`; effective_order() drops stale keys and appends any not-yet-ordered
+systems at the bottom so new/scanned systems never vanish. GUI-only; v0.5.0.

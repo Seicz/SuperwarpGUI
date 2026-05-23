@@ -5,6 +5,19 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.5.0] -- drag-to-reorder systems sidebar
+
+- The SYSTEMS list is now **freely reorderable by drag-and-drop**. Grab any row,
+  drag it, and an insertion line snaps to the target slot; release to drop. Click
+  still selects (a clean click vs a drag is disambiguated by movement).
+- The order **persists** in `superwarp_gui.json` (`system_order`). New systems --
+  ones Akaden adds upstream, or a system you scan into for the first time --
+  append at the bottom rather than vanishing, and systems no longer present are
+  dropped from the saved order automatically.
+- The dragged row highlights (azure) and the cursor switches to grab/grabbing.
+
+No protocol change; works with addon v1.5.0+.
+
 ## [0.4.0] -- dispatch toggle + sub-command submenu
 
 - **Send toggle** in the warp-panel header, cycling **Off -> Party -> All**
