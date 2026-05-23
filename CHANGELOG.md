@@ -5,6 +5,23 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.6.0] -- animated drag-to-reorder (lift / slide-apart / settle)
+
+Replaces v0.5.0's static reorder with a fully animated one:
+- **Lift:** the grabbed system peels onto a foreground layer with a drop shadow
+  and follows the cursor (tracks where you grabbed it, not the row top).
+- **Slide-apart:** the other rows ease out of the way to open a gap at the drop
+  slot, rather than snapping -- each row animates toward its target slot via
+  `animate_value_with_time`. A faint azure gap marks where it will land.
+- **Settle:** on release the tab eases from the cursor into its new slot.
+The sidebar now hand-positions rows at animated y-offsets within a fixed-height
+slot grid (egui has no built-in list-reorder transition), painting rows directly
+so positions are fully controllable. Offsets are relative to the list top, so
+scrolling doesn't retrigger the animation. Order still persists in
+`superwarp_gui.json`; new/unknown systems still append at the bottom.
+
+Easing time is a single constant (`ANIM`, 0.13s) -- trivial to tune.
+
 ## [0.5.0] -- drag-to-reorder systems sidebar
 
 - The SYSTEMS list is now **freely reorderable by drag-and-drop**. Grab any row,

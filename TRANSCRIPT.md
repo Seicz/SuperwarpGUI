@@ -121,3 +121,21 @@ without paint-order tricks); click selects, drag shows a snap-to insertion line 
 on release splices the row into the new slot. Order persists in superwarp_gui.json
 as `system_order`; effective_order() drops stale keys and appends any not-yet-ordered
 systems at the bottom so new/scanned systems never vanish. GUI-only; v0.5.0.
+
+---
+
+## Session (GUI v0.6.0) -- animated drag-to-reorder
+
+**Eric:** Wants a physical indication of lifting the tab and moving it into place,
+watching snap animations -- and chose the full version (rows physically slide apart)
+over the lighter lift-and-follow-only option.
+
+**Claude:** egui has no built-in FLIP/list-reorder transition, so hand-rolled it:
+the sidebar now positions rows at animated y-offsets within a fixed-height slot grid,
+painting rows directly (painter text + bg) for full positional control. Dragged row
+lifts onto a foreground layer with a shadow and follows the cursor; other rows ease
+toward their slots (gap opens at the insertion point) via animate_value_with_time;
+on release the tab eases from cursor into its slot. Offsets are relative to the list
+top so scrolling doesn't retrigger animation. Persists as before; new systems append.
+Easing is one tunable constant. Flagged: passes brace/symbol checks but not a real
+cargo build, and the motion will want local visual tuning. GUI-only; v0.6.0.

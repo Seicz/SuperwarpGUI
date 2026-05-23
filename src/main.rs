@@ -82,7 +82,7 @@ impl Dispatch {
     }
 }
 
-const GUI_VERSION: &str = "0.5.0";
+const GUI_VERSION: &str = "0.6.0";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -319,6 +319,7 @@ struct WarpApp {
     search: String,
     dispatch: Dispatch,
     drag_system: Option<String>,
+    drag_grab_offset: f32,
     log_lines: Vec<(String, String)>,
     config: Config,
     always_on_top: bool,
@@ -344,6 +345,7 @@ impl Default for WarpApp {
             search: String::new(),
             dispatch: Dispatch::Off,
             drag_system: None,
+            drag_grab_offset: 0.0,
             log_lines: Vec::new(),
             config: Config::default(),
             always_on_top: false,
@@ -805,127 +807,209 @@ impl WarpApp {
             })
             .collect();
 
+        const ROW_H: f32 = 34.0;
+        const PAD_X: f32 = 5.0;
+        const ANIM: f32 = 0.13; // slide/settle easing time (seconds) -- tune to taste
+        let n = rows.len();
+        if n == 0 {
+            ui.label(
+                RichText::new("waiting for catalogue...")
+                    .color(MUTED)
+                    .font(FontId::monospace(11.0)),
+            );
+            return;
+        }
+
         egui::ScrollArea::vertical()
             .auto_shrink([false; 2])
             .show(ui, |ui| {
+                let ctx = ui.ctx().clone();
                 let dragging = self.drag_system.clone();
+                let avail_w = ui.available_width();
+                // One fixed-height slot per system, so the list has stable
+                // geometry to animate within and the ScrollArea sizes correctly.
+                let (area, _) = ui.allocate_exact_size(
+                    Vec2::new(avail_w, n as f32 * ROW_H),
+                    egui::Sense::hover(),
+                );
+                let top = area.top();
+                let left = area.left();
+                let width = area.width();
+
+                let pointer = ctx.input(|i| i.pointer.hover_pos());
+                let released = ctx.input(|i| i.pointer.any_released());
+
+                // Top of the floating tab (cursor minus where it was grabbed),
+                // and the insertion slot that position implies.
+                let ghost_y = match (&dragging, pointer) {
+                    (Some(_), Some(p)) => Some(p.y - self.drag_grab_offset),
+                    _ => None,
+                };
+                let ins = match ghost_y {
+                    Some(gy) => (((gy - top) / ROW_H).round() as i64)
+                        .clamp(0, (n as i64 - 1).max(0)) as usize,
+                    None => 0,
+                };
+
+                // The order with the dragged key removed -- used to map every
+                // other row to a slot, opening a gap at `ins`.
+                let without_k: Vec<&String> = rows
+                    .iter()
+                    .map(|(k, ..)| k)
+                    .filter(|k| dragging.as_deref() != Some((*k).as_str()))
+                    .collect();
+
                 let mut clicked: Option<String> = None;
-                let mut row_rects: Vec<(String, egui::Rect)> = Vec::new();
 
                 for (key, label, counts, partial, total) in &rows {
-                    let is_sel = self.selected_system.as_deref() == Some(key.as_str());
                     let is_drag = dragging.as_deref() == Some(key.as_str());
-                    let fill = if is_sel { HOVER } else { Color32::TRANSPARENT };
 
-                    // Render the row (name + count) inside a frame so a selected
-                    // row gets a background behind its text without paint-order
-                    // tricks. The frame's response rect is the whole row.
-                    let frame_resp = egui::Frame::NONE
-                        .fill(fill)
-                        .corner_radius(CornerRadius::same(3))
-                        .inner_margin(Margin::symmetric(4, 1))
-                        .show(ui, |ui| {
-                            let name_col = if is_drag {
-                                AZURE
-                            } else if is_sel {
-                                WHITE
+                    // Target slot -> y relative to the list top (relative, so
+                    // scrolling the panel doesn't retrigger the animation). Each
+                    // row eases toward its slot; the dragged row pins to cursor.
+                    let target_rel = if is_drag {
+                        ghost_y.map(|gy| gy - top).unwrap_or(0.0)
+                    } else {
+                        let j = without_k.iter().position(|k| *k == key).unwrap_or(0);
+                        let slot = if dragging.is_some() {
+                            if j < ins { j } else { j + 1 }
+                        } else {
+                            j
+                        };
+                        slot as f32 * ROW_H
+                    };
+                    let dur = if is_drag { 0.0 } else { ANIM };
+                    let rel =
+                        ctx.animate_value_with_time(egui::Id::new(("sysrow", key)), target_rel, dur);
+                    let row_y = top + rel;
+                    let row_rect =
+                        egui::Rect::from_min_size(egui::pos2(left, row_y), Vec2::new(width, ROW_H));
+
+                    let is_sel = self.selected_system.as_deref() == Some(key.as_str());
+                    let (count_txt, count_col) = match counts {
+                        Some((open, known)) => {
+                            let col = if open == known { UNLOCKED } else { MUTED };
+                            let suffix = if *partial { " ~partial" } else { "" };
+                            (Some(format!("{}/{} unlocked{}", open, known, suffix)), col)
+                        }
+                        None => {
+                            if *total > 0 {
+                                (Some(format!("{} destinations", total)), MUTED)
                             } else {
-                                TEXT
-                            };
-                            ui.label(
-                                RichText::new(label)
-                                    .color(name_col)
-                                    .font(FontId::monospace(12.0)),
-                            );
-                            match counts {
-                                Some((open, known)) => {
-                                    let col = if open == known { UNLOCKED } else { MUTED };
-                                    let suffix = if *partial { " ~partial" } else { "" };
-                                    ui.label(
-                                        RichText::new(format!(
-                                            "   {}/{} unlocked{}",
-                                            open, known, suffix
-                                        ))
-                                        .color(col)
-                                        .font(FontId::monospace(9.0)),
-                                    );
-                                }
-                                None => {
-                                    if *total > 0 {
-                                        ui.label(
-                                            RichText::new(format!("   {} destinations", total))
-                                                .color(MUTED)
-                                                .font(FontId::monospace(9.0)),
-                                        );
-                                    }
-                                }
+                                (None, MUTED)
                             }
-                        });
+                        }
+                    };
 
-                    let rect = frame_resp.response.rect;
-                    let id = ui.make_persistent_id(("sysdnd", key));
-                    let resp = ui.interact(rect, id, egui::Sense::click_and_drag());
-                    if resp.dragged() || resp.drag_started() {
-                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-                    } else if resp.hovered() {
-                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+                    if is_drag {
+                        // The lifted tab: foreground layer, drop shadow, follows
+                        // the cursor. animate_value above is pinned to ghost_y so
+                        // that on release it eases from here into its new slot.
+                        let fp = ctx.layer_painter(egui::LayerId::new(
+                            egui::Order::Foreground,
+                            egui::Id::new("sw_sys_ghost"),
+                        ));
+                        let g = row_rect.shrink2(Vec2::new(1.0, 1.0));
+                        fp.rect_filled(
+                            g.translate(Vec2::new(3.0, 4.0)),
+                            5.0,
+                            Color32::from_black_alpha(110),
+                        );
+                        fp.rect_filled(g, 5.0, HOVER);
+                        fp.text(
+                            g.min + Vec2::new(PAD_X, 3.0),
+                            egui::Align2::LEFT_TOP,
+                            label,
+                            FontId::monospace(12.0),
+                            WHITE,
+                        );
+                        if let Some(ct) = &count_txt {
+                            fp.text(
+                                g.min + Vec2::new(PAD_X + 6.0, 19.0),
+                                egui::Align2::LEFT_TOP,
+                                ct,
+                                FontId::monospace(9.0),
+                                count_col,
+                            );
+                        }
+                        continue;
+                    }
+
+                    if is_sel {
+                        ui.painter()
+                            .rect_filled(row_rect.shrink2(Vec2::new(0.0, 1.0)), 3.0, HOVER);
+                    }
+                    let name_col = if is_sel { WHITE } else { TEXT };
+                    ui.painter().text(
+                        egui::pos2(left + PAD_X, row_y + 3.0),
+                        egui::Align2::LEFT_TOP,
+                        label,
+                        FontId::monospace(12.0),
+                        name_col,
+                    );
+                    if let Some(ct) = &count_txt {
+                        ui.painter().text(
+                            egui::pos2(left + PAD_X + 6.0, row_y + 19.0),
+                            egui::Align2::LEFT_TOP,
+                            ct,
+                            FontId::monospace(9.0),
+                            count_col,
+                        );
+                    }
+
+                    let resp = ui.interact(
+                        row_rect,
+                        egui::Id::new(("sysdnd", key)),
+                        egui::Sense::click_and_drag(),
+                    );
+                    if dragging.is_none() && resp.hovered() {
+                        ctx.set_cursor_icon(egui::CursorIcon::Grab);
                     }
                     if resp.drag_started() {
                         self.drag_system = Some(key.clone());
+                        self.drag_grab_offset = pointer.map(|p| p.y - row_y).unwrap_or(ROW_H / 2.0);
                     }
                     if resp.clicked() {
                         clicked = Some(key.clone());
                     }
-                    row_rects.push((key.clone(), rect));
                 }
 
-                // selection (only fires on a clean click, never after a drag)
+                // The open gap the tab will drop into (and keep the grab cursor).
+                if dragging.is_some() {
+                    ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+                    let gap_y = top + ins as f32 * ROW_H;
+                    let gap = egui::Rect::from_min_size(
+                        egui::pos2(left, gap_y),
+                        Vec2::new(width, ROW_H),
+                    )
+                    .shrink2(Vec2::new(1.0, 2.0));
+                    ui.painter().rect_filled(
+                        gap,
+                        4.0,
+                        Color32::from_rgba_unmultiplied(AZURE.r(), AZURE.g(), AZURE.b(), 26),
+                    );
+                }
+
                 if let Some(sel) = clicked {
                     self.selected_system = Some(sel.clone());
                     self.config.last_system = Some(sel);
                     self.config.mark_dirty();
                 }
 
-                // drag-to-reorder: while a row is held, show an insertion line at
-                // the nearest slot; on release, splice it in and persist the order.
-                if let Some(drag_key) = self.drag_system.clone() {
-                    let ptr = ui.input(|i| i.pointer.hover_pos());
-                    let released = ui.input(|i| i.pointer.any_released());
-                    if let Some(p) = ptr {
-                        let mut insert_idx = row_rects.len();
-                        for (idx, (_, r)) in row_rects.iter().enumerate() {
-                            if p.y < r.center().y {
-                                insert_idx = idx;
-                                break;
-                            }
+                // Commit on release: splice the dragged key into slot `ins` and
+                // persist. Next frame it eases from the ghost position into place.
+                if let Some(drag_key) = dragging {
+                    if released {
+                        let mut new_order: Vec<String> =
+                            rows.iter().map(|(k, ..)| k.clone()).collect();
+                        if let Some(from) = new_order.iter().position(|k| k == &drag_key) {
+                            let item = new_order.remove(from);
+                            let to = ins.min(new_order.len());
+                            new_order.insert(to, item);
+                            self.config.system_order = new_order;
+                            self.config.mark_dirty();
+                            self.config.save();
                         }
-                        if !row_rects.is_empty() {
-                            let xr = row_rects[0].1.x_range();
-                            let y = if insert_idx < row_rects.len() {
-                                row_rects[insert_idx].1.top()
-                            } else {
-                                row_rects[row_rects.len() - 1].1.bottom()
-                            };
-                            ui.painter().hline(xr, y, Stroke::new(2.0, AZURE));
-                        }
-                        if released {
-                            let mut new_order: Vec<String> =
-                                rows.iter().map(|(k, ..)| k.clone()).collect();
-                            if let Some(from) = new_order.iter().position(|k| k == &drag_key) {
-                                let k = new_order.remove(from);
-                                let mut to = insert_idx;
-                                if from < to {
-                                    to -= 1;
-                                }
-                                let to = to.min(new_order.len());
-                                new_order.insert(to, k);
-                                self.config.system_order = new_order;
-                                self.config.mark_dirty();
-                                self.config.save();
-                            }
-                            self.drag_system = None;
-                        }
-                    } else if released {
                         self.drag_system = None;
                     }
                 }
