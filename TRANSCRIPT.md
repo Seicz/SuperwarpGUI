@@ -169,3 +169,15 @@ to a warning if no resource compiler. (2) runtime with_icon via
 eframe::icon_data::from_png_bytes(include_bytes!) -> title-bar/taskbar icon, guarded.
 v0.7.0. Flagged: can't cargo-build here; winresource + from_png_bytes are the items
 to confirm on Eric's machine.
+
+---
+
+## Session (GUI v0.7.1) -- multicolor banner chevron + sharper icon
+
+**Eric:** [screenshot] Prefers the banner chevron's angle over the icon's "weak"
+(blunt) angle; likes the color scheme; wants the banner chevron multicolor like the icon.
+
+**Claude:** The banner "»" was a single azure text glyph (can't be two-toned), so
+replaced it with painted geometry: a violet-back + azure-front double-chevron drawn
+via line_segment + round caps, sharp ~60deg. Also regenerated the icon with a matching
+sharp angle (was ~120deg/blunt; dx/half ratio raised). Both now share the look. v0.7.1.

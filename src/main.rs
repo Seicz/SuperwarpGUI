@@ -82,7 +82,7 @@ impl Dispatch {
     }
 }
 
-const GUI_VERSION: &str = "0.7.0";
+const GUI_VERSION: &str = "0.7.1";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -655,7 +655,34 @@ fn setup_aether_theme(ctx: &egui::Context) {
 impl WarpApp {
     fn render_header(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("»").font(FontId::monospace(16.0)).color(AZURE));
+            // painted multicolor double-chevron (matches the app icon): violet
+            // back + azure front, sharp ~60-degree angle. A text "»" can't be
+            // two-toned, so we paint the geometry directly.
+            {
+                let h = 18.0_f32;
+                let (rect, _) =
+                    ui.allocate_exact_size(Vec2::new(h * 1.15, h), egui::Sense::hover());
+                let p = ui.painter();
+                let cy = rect.center().y;
+                let half = 0.30 * h; // vertical half-span
+                let dx = 0.50 * h; // arm reach; larger relative to half = sharper
+                let sw = (0.17 * h).max(2.0);
+                let gap = 0.32 * h; // horizontal offset between the two chevrons
+                let lx0 = rect.left() + sw * 0.5;
+                let mut chev = |lx: f32, color: Color32| {
+                    let top = egui::pos2(lx, cy - half);
+                    let apex = egui::pos2(lx + dx, cy);
+                    let bot = egui::pos2(lx, cy + half);
+                    p.line_segment([top, apex], Stroke::new(sw, color));
+                    p.line_segment([apex, bot], Stroke::new(sw, color));
+                    let cap = sw * 0.5;
+                    p.circle_filled(top, cap, color);
+                    p.circle_filled(apex, cap, color);
+                    p.circle_filled(bot, cap, color);
+                };
+                chev(lx0, VIOLET);
+                chev(lx0 + gap, AZURE);
+            }
             ui.label(
                 RichText::new("superwarp")
                     .font(FontId::monospace(16.0))

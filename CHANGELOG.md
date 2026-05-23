@@ -5,6 +5,15 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.7.1] -- multicolor banner chevron + sharper icon angle
+
+- The header banner's "»" is now a **painted multicolor double-chevron** (violet
+  back + azure front) instead of a single azure text glyph, matching the app icon.
+  (A text glyph can't be two-toned, so it's drawn as geometry.)
+- **Sharpened the chevron angle** on both the icon and the banner to a tighter
+  ~60 degrees -- the previous icon angle was much blunter (~120) than the banner.
+  Icon regenerated (`assets/icon.png` / `.ico`); both now share one look.
+
 ## [0.7.0] -- app icon + authorship metadata
 
 The executable now carries the superwarp chevron icon and proper file identity
