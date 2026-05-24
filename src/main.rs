@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
-use std::net::TcpStream;
+use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -82,7 +82,7 @@ impl Dispatch {
     }
 }
 
-const GUI_VERSION: &str = "0.8.0";
+const GUI_VERSION: &str = "0.9.1";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -170,6 +170,8 @@ enum ServerMsg {
         zone_id: u32,
         #[serde(default)]
         busy: bool,
+        #[serde(default)]
+        debug: bool,
     },
     #[serde(rename = "lists")]
     Lists {
@@ -208,7 +210,7 @@ enum ServerMsg {
 // Persisted config (next to the exe, like Fisher)
 // =========================================================================
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Config {
     window_x: Option<f32>,
     window_y: Option<f32>,
@@ -220,8 +222,36 @@ struct Config {
     last_system: Option<String>,
     #[serde(default)]
     system_order: Vec<String>,
+    #[serde(default = "default_host")]
+    host: String,
+    #[serde(default = "default_port")]
+    port: u16,
     #[serde(skip)]
     dirty: bool,
+}
+
+fn default_host() -> String {
+    "127.0.0.1".to_string()
+}
+fn default_port() -> u16 {
+    19519
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            window_x: None,
+            window_y: None,
+            window_w: None,
+            window_h: None,
+            always_on_top: false,
+            last_system: None,
+            system_order: Vec::new(),
+            host: default_host(),
+            port: default_port(),
+            dirty: false,
+        }
+    }
 }
 
 fn config_path() -> std::path::PathBuf {
@@ -295,6 +325,12 @@ struct Connection {
     writer: TcpStream,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum View {
+    Warp,
+    Advanced,
+}
+
 struct WarpApp {
     // network
     conn: Option<Connection>,
@@ -309,6 +345,7 @@ struct WarpApp {
     zone: String,
     zone_id: u32,
     busy: bool,
+    addon_debug: bool,
 
     // catalogue + unlocks
     systems: Vec<SystemList>,
@@ -321,6 +358,9 @@ struct WarpApp {
     drag_system: Option<String>,
     drag_grab_offset: f32,
     log_lines: Vec<(String, String)>,
+    view: View,
+    host_draft: String,
+    port_draft: String,
     config: Config,
     always_on_top: bool,
     last_save: Instant,
@@ -339,6 +379,7 @@ impl Default for WarpApp {
             zone: String::new(),
             zone_id: 0,
             busy: false,
+            addon_debug: false,
             systems: Vec::new(),
             unlocks: HashMap::new(),
             selected_system: None,
@@ -347,6 +388,9 @@ impl Default for WarpApp {
             drag_system: None,
             drag_grab_offset: 0.0,
             log_lines: Vec::new(),
+            view: View::Warp,
+            host_draft: String::new(),
+            port_draft: String::new(),
             config: Config::default(),
             always_on_top: false,
             last_save: Instant::now(),
@@ -370,15 +414,30 @@ impl WarpApp {
             return;
         }
         self.last_connect_attempt = Some(Instant::now());
+        let addr = format!("{}:{}", self.config.host, self.config.port);
+        let sockaddr = match addr.to_socket_addrs().ok().and_then(|mut it| it.next()) {
+            Some(a) => a,
+            None => {
+                self.connect_error = format!("Invalid address: {}", addr);
+                self.pending_conn = None;
+                return;
+            }
+        };
         let (tx, rx) = mpsc::channel();
         self.pending_conn = Some(rx);
         std::thread::spawn(move || {
-            let result = TcpStream::connect_timeout(
-                &"127.0.0.1:19519".parse().unwrap(),
-                Duration::from_secs(1),
-            );
+            let result = TcpStream::connect_timeout(&sockaddr, Duration::from_secs(1));
             let _ = tx.send(result.map_err(|e| format!("{}", e)));
         });
+    }
+
+    // Tear down the current link so poll_network reconnects (to the current
+    // host:port) on the next frame. Used after changing the address.
+    fn reconnect(&mut self) {
+        self.conn = None;
+        self.pending_conn = None;
+        self.connect_error.clear();
+        self.last_connect_attempt = None;
     }
 
     fn check_pending_connect(&mut self) {
@@ -515,6 +574,7 @@ impl WarpApp {
                 zone,
                 zone_id,
                 busy,
+                debug,
             } => {
                 self.logged_in = logged_in;
                 self.character = character;
@@ -522,6 +582,7 @@ impl WarpApp {
                 self.zone = zone;
                 self.zone_id = zone_id;
                 self.busy = busy;
+                self.addon_debug = debug;
             }
             ServerMsg::Lists { systems } => {
                 self.systems = systems;
@@ -718,6 +779,21 @@ impl WarpApp {
                             egui::WindowLevel::Normal
                         },
                     ));
+                }
+                let adv = self.view == View::Advanced;
+                let toggle = egui::Button::new(
+                    RichText::new(if adv { "warp" } else { "advanced" })
+                        .color(if adv { AZURE } else { MUTED })
+                        .font(FontId::monospace(10.0)),
+                )
+                .fill(PANEL)
+                .corner_radius(CornerRadius::same(3));
+                if ui.add(toggle).clicked() {
+                    self.view = if adv { View::Warp } else { View::Advanced };
+                    if self.view == View::Advanced {
+                        self.host_draft = self.config.host.clone();
+                        self.port_draft = self.config.port.to_string();
+                    }
                 }
                 if self.conn.is_some() {
                     ui.label(
@@ -1021,6 +1097,7 @@ impl WarpApp {
                     self.selected_system = Some(sel.clone());
                     self.config.last_system = Some(sel);
                     self.config.mark_dirty();
+                    self.view = View::Warp;
                 }
 
                 // Commit on release: splice the dragged key into slot `ins` and
@@ -1400,6 +1477,190 @@ impl WarpApp {
             );
         }
     }
+
+    fn render_advanced(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            RichText::new("ADVANCED")
+                .color(MUTED)
+                .font(FontId::monospace(10.0)),
+        );
+        ui.add_space(6.0);
+
+        // ---- Connection ----
+        ui.label(
+            RichText::new("Connection")
+                .color(WHITE)
+                .strong()
+                .font(FontId::monospace(13.0)),
+        );
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("host").color(MUTED).font(FontId::monospace(11.0)));
+            ui.add(
+                egui::TextEdit::singleline(&mut self.host_draft)
+                    .desired_width(150.0)
+                    .font(FontId::monospace(12.0)),
+            );
+            ui.add_space(8.0);
+            ui.label(RichText::new("port").color(MUTED).font(FontId::monospace(11.0)));
+            ui.add(
+                egui::TextEdit::singleline(&mut self.port_draft)
+                    .desired_width(70.0)
+                    .font(FontId::monospace(12.0)),
+            );
+        });
+        ui.add_space(4.0);
+        let mut do_apply = false;
+        ui.horizontal(|ui| {
+            let apply = egui::Button::new(
+                RichText::new("apply + reconnect")
+                    .color(WHITE)
+                    .font(FontId::monospace(11.0)),
+            )
+            .fill(PANEL)
+            .corner_radius(CornerRadius::same(3));
+            if ui.add(apply).clicked() {
+                do_apply = true;
+            }
+            let reset = egui::Button::new(
+                RichText::new("defaults")
+                    .color(MUTED)
+                    .font(FontId::monospace(11.0)),
+            )
+            .fill(PANEL)
+            .corner_radius(CornerRadius::same(3));
+            if ui.add(reset).clicked() {
+                self.host_draft = default_host();
+                self.port_draft = default_port().to_string();
+                do_apply = true;
+            }
+        });
+        let status = if self.conn.is_some() {
+            format!("connected to {}:{}", self.config.host, self.config.port)
+        } else if !self.connect_error.is_empty() {
+            format!("offline -- {}", self.connect_error)
+        } else {
+            "offline".to_string()
+        };
+        let scol = if self.conn.is_some() { UNLOCKED } else { MUTED };
+        ui.label(RichText::new(status).color(scol).font(FontId::monospace(10.0)));
+        if do_apply {
+            let host = self.host_draft.trim().to_string();
+            match self.port_draft.trim().parse::<u16>() {
+                Ok(p) if p != 0 && !host.is_empty() => {
+                    self.config.host = host;
+                    self.config.port = p;
+                    self.config.mark_dirty();
+                    self.config.save();
+                    self.log(
+                        "info",
+                        &format!("reconnecting to {}:{}", self.config.host, self.config.port),
+                    );
+                    self.reconnect();
+                }
+                _ => self.log("error", "invalid host/port"),
+            }
+        }
+
+        ui.add_space(10.0);
+
+        // ---- Diagnostics ----
+        ui.label(
+            RichText::new("Diagnostics")
+                .color(WHITE)
+                .strong()
+                .font(FontId::monospace(13.0)),
+        );
+        ui.add_space(4.0);
+        // The addon's own debug mode (//sw debug), driven over the bridge. The
+        // checkbox reflects the addon's reported state; toggling sends the command
+        // and the addon re-broadcasts state. Its verbose output arrives as msg
+        // events and appears in the log below. Disabled until connected.
+        let mut dbg = self.addon_debug;
+        let resp = ui.add_enabled(
+            self.conn.is_some(),
+            egui::Checkbox::new(
+                &mut dbg,
+                RichText::new("addon debug (//sw debug) -- verbose addon logging")
+                    .color(if self.conn.is_some() { TEXT } else { MUTED })
+                    .font(FontId::monospace(11.0)),
+            ),
+        );
+        if resp.changed() {
+            self.send(&format!("{{\"cmd\":\"debug\",\"on\":{}}}", dbg));
+        }
+        ui.horizontal(|ui| {
+            ui.label(
+                RichText::new(format!("{} log lines", self.log_lines.len()))
+                    .color(MUTED)
+                    .font(FontId::monospace(10.0)),
+            );
+            let clear = egui::Button::new(
+                RichText::new("clear").color(MUTED).font(FontId::monospace(10.0)),
+            )
+            .fill(PANEL)
+            .corner_radius(CornerRadius::same(3));
+            if ui.add(clear).clicked() {
+                self.log_lines.clear();
+            }
+        });
+        ui.add_space(4.0);
+        egui::Frame::NONE
+            .fill(INPUT)
+            .corner_radius(CornerRadius::same(4))
+            .inner_margin(Margin::symmetric(8, 6))
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false; 2])
+                    .max_height(220.0)
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        if self.log_lines.is_empty() {
+                            ui.label(
+                                RichText::new("(no log yet)")
+                                    .color(MUTED)
+                                    .font(FontId::monospace(10.0)),
+                            );
+                        }
+                        for (level, text) in &self.log_lines {
+                            let col = match level.as_str() {
+                                "error" => LOCKED,
+                                "warning" => GOLD,
+                                "debug" => AZURE_DIM,
+                                _ => MUTED,
+                            };
+                            ui.label(
+                                RichText::new(text).color(col).font(FontId::monospace(10.0)),
+                            );
+                        }
+                    });
+            });
+
+        ui.add_space(10.0);
+
+        // ---- About ----
+        ui.label(
+            RichText::new("About")
+                .color(WHITE)
+                .strong()
+                .font(FontId::monospace(13.0)),
+        );
+        let av = if self.addon_version.is_empty() {
+            "(not connected)"
+        } else {
+            &self.addon_version
+        };
+        ui.label(
+            RichText::new(format!("GUI v{}   addon v{}", GUI_VERSION, av))
+                .color(MUTED)
+                .font(FontId::monospace(10.0)),
+        );
+        ui.label(
+            RichText::new("by Eric Strawser (Seicz@Bahamut) - ITIWH.com")
+                .color(MUTED)
+                .font(FontId::monospace(9.0)),
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1743,7 +2004,10 @@ impl eframe::App for WarpApp {
 
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(BG).inner_margin(Margin::symmetric(12, 8)))
-            .show(ctx, |ui| self.render_destinations(ui));
+            .show(ctx, |ui| match self.view {
+                View::Advanced => self.render_advanced(ui),
+                View::Warp => self.render_destinations(ui),
+            });
     }
 }
 
@@ -1787,6 +2051,8 @@ fn main() -> eframe::Result<()> {
             setup_aether_theme(&cc.egui_ctx);
             let mut app = WarpApp::default();
             app.always_on_top = cfg.always_on_top;
+            app.port_draft = cfg.port.to_string();
+            app.host_draft = cfg.host.clone();
             app.config = cfg;
             Ok(Box::new(app))
         }),

@@ -197,3 +197,33 @@ shown under a "closest:" note rather than an empty result. Browse mode keeps the
 alphabetical/numeric ordering. Verified the port byte-identical to the addon's Lua
 scorer via a Python mirror diffed against lua5.1 across subsequence/nil/Levenshtein
 cases. GUI-only; v0.8.0.
+
+---
+
+## Session (GUI v0.9.0) -- advanced settings view
+
+**Eric:** GUI needs an advanced tab section for misc settings -- e.g. debug, and
+changing the connection port.
+
+**Claude:** Added a View enum (Warp/Advanced) toggled from the header; the central
+panel renders render_advanced in Advanced mode, and selecting a system returns to
+Warp. Config gained host/port/debug (manual Default so port defaults to 19519, not
+0; serde defaults for old config files). try_connect now builds host:port and
+resolves via ToSocketAddrs (localhost works); a reconnect() helper tears down the
+link so poll_network redials immediately. Advanced view: Connection (host/port +
+apply+reconnect + defaults + live status), Diagnostics (debug toggle -> raw protocol
+traffic logged -> / <- to an in-app console + clear), About (versions). debug logging
+wired into send() and poll_network() (collected raw, logged after the conn borrow).
+GUI-only; v0.9.0.
+
+---
+
+## Session (GUI v0.9.1) -- debug is the addon's, corrected
+
+**Eric:** debug is an option in the superwarp addon, not the GUI.
+
+**Claude:** Corrected. Removed config.debug and the GUI raw-protocol logging.
+Added addon_debug (from the state event's new debug field); the Advanced checkbox
+reflects it and, on toggle, sends {"cmd":"debug","on":bool} to the addon (disabled
+until connected). The addon's verbose output arrives as msg events and shows in the
+log console. Pairs with addon v1.6.0.

@@ -5,6 +5,29 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.9.1] -- Advanced debug drives the addon (not the GUI)
+
+Corrects v0.9.0: `debug` is the addon's own mode (`//sw debug`), not a GUI setting.
+The Advanced "debug" checkbox now reflects the addon's reported debug state and
+toggles it over the bridge (`{"cmd":"debug","on":...}`); the addon's verbose output
+streams into the log console as `msg` events, as before. Removed the GUI-side debug
+flag and the raw-protocol logging. Requires addon v1.6.0+ for the `debug` command and
+the `debug` field in `state`.
+
+## [0.9.0] -- advanced settings view (connection + debug)
+
+An `advanced` toggle in the header opens a settings page (the systems sidebar still
+returns you to the launcher on click):
+- **Connection** -- editable host + port with `apply + reconnect` and a `defaults`
+  reset. The port is no longer hardcoded; the address is resolved (so `localhost`
+  works too), persisted, and reconnected to live.
+- **Diagnostics** -- a `debug` toggle that mirrors all raw protocol traffic (sent
+  `->` and received `<-`) into an in-app log console, with a `clear` button.
+- **About** -- GUI + connected addon versions.
+
+Config gains `host`, `port`, and `debug` (persisted). Built so more misc. settings
+can be added to this view over time.
+
 ## [0.8.0] -- fuzzy search (matches the in-game addon)
 
 The search box now uses the same matcher as the addon's fuzzyfind, ported to Rust
