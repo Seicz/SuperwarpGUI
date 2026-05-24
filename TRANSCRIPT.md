@@ -227,3 +227,17 @@ Added addon_debug (from the state event's new debug field); the Advanced checkbo
 reflects it and, on toggle, sends {"cmd":"debug","on":bool} to the addon (disabled
 until connected). The addon's verbose output arrives as msg events and shows in the
 log console. Pairs with addon v1.6.0.
+
+---
+
+## Session (GUI v0.9.2) -- clear search after a search-result warp
+
+**Eric:** After queuing a warp from the search box, clear the search box after the
+warp completes.
+
+**Claude:** Warps are fire-and-forget, but the addon broadcasts state at completion
+(line 648, current_activity cleared -> busy=false); no broadcast at warp start, so
+the box naturally persists through the warp. Added clear_search_pending: set when a
+result is clicked while in global search; cleared (clearing self.search) on the next
+State with busy==false; and cancelled if the user edits the search before it lands
+(so a fresh query isn't wiped). GUI-only; v0.9.2.

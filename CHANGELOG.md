@@ -5,6 +5,14 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.9.2] -- clear the search box after a search-result warp
+
+Clicking a destination from a global search now clears the search box once the warp
+completes (the addon broadcasts a not-busy state when `current_activity` clears), so
+you drop back to your browse view rather than leaving the old query sitting there.
+The box stays put during the warp, and if you start typing a new search before it
+lands, the queued clear is cancelled so your new query isn't wiped.
+
 ## [0.9.1] -- Advanced debug drives the addon (not the GUI)
 
 Corrects v0.9.0: `debug` is the addon's own mode (`//sw debug`), not a GUI setting.

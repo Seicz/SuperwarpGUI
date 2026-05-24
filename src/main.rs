@@ -82,7 +82,7 @@ impl Dispatch {
     }
 }
 
-const GUI_VERSION: &str = "0.9.1";
+const GUI_VERSION: &str = "0.9.2";
 
 // =========================================================================
 // Protocol types (match superwarp.lua's JSON exactly)
@@ -357,6 +357,7 @@ struct WarpApp {
     dispatch: Dispatch,
     drag_system: Option<String>,
     drag_grab_offset: f32,
+    clear_search_pending: bool,
     log_lines: Vec<(String, String)>,
     view: View,
     host_draft: String,
@@ -387,6 +388,7 @@ impl Default for WarpApp {
             dispatch: Dispatch::Off,
             drag_system: None,
             drag_grab_offset: 0.0,
+            clear_search_pending: false,
             log_lines: Vec::new(),
             view: View::Warp,
             host_draft: String::new(),
@@ -583,6 +585,12 @@ impl WarpApp {
                 self.zone_id = zone_id;
                 self.busy = busy;
                 self.addon_debug = debug;
+                // A queued search-result warp has completed once the addon reports
+                // not-busy (it broadcasts state when current_activity clears).
+                if self.clear_search_pending && !busy {
+                    self.search.clear();
+                    self.clear_search_pending = false;
+                }
             }
             ServerMsg::Lists { systems } => {
                 self.systems = systems;
@@ -1221,7 +1229,11 @@ impl WarpApp {
             .hint_text(RichText::new("search all systems...").color(MUTED))
             .desired_width(f32::INFINITY)
             .font(FontId::monospace(12.0));
-        ui.add(search);
+        // If the user edits the box, drop any queued auto-clear -- they're starting
+        // a fresh search and we shouldn't wipe it when an earlier warp lands.
+        if ui.add(search).changed() {
+            self.clear_search_pending = false;
+        }
         let _ = plural;
         ui.add_space(4.0);
 
@@ -1421,6 +1433,11 @@ impl WarpApp {
                         if resp.clicked() {
                             self.warp_to(sys, &d.zone, &d.sub);
                             self.log("info", &format!("-> warp {} / {}", sys, display));
+                            // Warping from a search result: clear the box once the
+                            // warp completes (next not-busy state from the addon).
+                            if global {
+                                self.clear_search_pending = true;
+                            }
                         }
 
                         // right side: system tag (only while searching) then cost
