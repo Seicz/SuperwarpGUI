@@ -124,7 +124,7 @@ void ui::Advanced(App& a)
 
     ImGui::Dummy(ImVec2(0, 4));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, theme::v4(theme::INPUT));
-    ImGui::BeginChild("##logconsole", ImVec2(0, 220.0f), ImGuiChildFlags_Borders);
+    ImGui::BeginChild("##logconsole", ImVec2(0, 220.0f * ui::dpi()), ImGuiChildFlags_Borders);
     if (a.log_lines.empty())
     {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::v4(theme::MUTED));

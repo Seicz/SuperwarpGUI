@@ -257,6 +257,8 @@ std::optional<std::pair<size_t,size_t>> app::unlock_counts(const App& a, const p
 
 void app::RenderFrame(App& a)
 {
+    const float scale = ui::dpi();
+
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(vp->WorkPos);
     ImGui::SetNextWindowSize(vp->WorkSize);
@@ -268,26 +270,28 @@ void app::RenderFrame(App& a)
     ImGui::Begin("##root", nullptr, flags);
     ImGui::PopStyleVar();
 
-    const float total_h = ImGui::GetContentRegionAvail().y;
-    const float footer_h = 56.0f;
+    const float total_h  = ImGui::GetContentRegionAvail().y;
+    const float header_h = 70.0f * scale;
+    const float footer_h = 56.0f * scale;
 
     // Header
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 8.0f));
-    ImGui::BeginChild("##header", ImVec2(0, 70.0f), ImGuiChildFlags_None);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 8.0f * scale));
+    ImGui::BeginChild("##header", ImVec2(0, header_h), ImGuiChildFlags_None);
     ui::Header(a);
     ImGui::EndChild();
     ImGui::PopStyleVar();
 
     // Body: systems sidebar + main panel.
-    const float side_w_min = 120.0f;
-    const float side_w_max = 360.0f;
-    static float side_w = 190.0f;
+    const float side_w_min = 120.0f * scale;
+    const float side_w_max = 360.0f * scale;
+    static float side_w_unscaled = 190.0f;
+    float side_w = side_w_unscaled * scale;
     if (side_w < side_w_min) side_w = side_w_min;
     if (side_w > side_w_max) side_w = side_w_max;
 
-    const float body_h = total_h - 70.0f - footer_h;
+    const float body_h = total_h - header_h - footer_h;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f * scale, 8.0f * scale));
     ImGui::BeginChild("##sys", ImVec2(side_w, body_h), ImGuiChildFlags_None);
     ui::Systems(a, body_h);
     ImGui::EndChild();
@@ -295,14 +299,18 @@ void app::RenderFrame(App& a)
 
     // Resize handle.
     ImGui::SameLine(0.0f, 0.0f);
-    ImGui::InvisibleButton("##sysresize", ImVec2(4.0f, body_h));
+    ImGui::InvisibleButton("##sysresize", ImVec2(4.0f * scale, body_h));
     if (ImGui::IsItemHovered() || ImGui::IsItemActive())
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
     if (ImGui::IsItemActive())
-        side_w = std::clamp(side_w + ImGui::GetIO().MouseDelta.x, side_w_min, side_w_max);
+    {
+        side_w_unscaled = std::clamp(
+            side_w_unscaled + ImGui::GetIO().MouseDelta.x / scale,
+            120.0f, 360.0f);
+    }
     ImGui::SameLine(0.0f, 0.0f);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 8.0f * scale));
     ImGui::BeginChild("##main", ImVec2(0, body_h), ImGuiChildFlags_None);
     if (a.view == View::Advanced) ui::Advanced(a);
     else                          ui::Destinations(a);
@@ -311,7 +319,7 @@ void app::RenderFrame(App& a)
 
     // Footer.
     ImGui::PushStyleColor(ImGuiCol_ChildBg, theme::v4(theme::INPUT));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 6.0f * scale));
     ImGui::BeginChild("##footer", ImVec2(0, footer_h), ImGuiChildFlags_None);
     ui::Footer(a);
     ImGui::EndChild();

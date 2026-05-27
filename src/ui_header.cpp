@@ -53,15 +53,17 @@ namespace
 
 void ui::Header(App& a)
 {
+    const float scale = ui::dpi();
+
     // Row 1: chevron + title + version  |  pin + advanced + status
-    const float row_h = 22.0f;
+    const float row_h = 22.0f * scale;
     ImVec2 origin = ImGui::GetCursorScreenPos();
 
     // chevron
-    const float chev_h = 18.0f;
+    const float chev_h = 18.0f * scale;
     const float chev_w = chev_h * 1.15f;
     paint_chevron(ImVec2(origin.x, origin.y + (row_h - chev_h) * 0.5f), chev_h);
-    ImGui::Dummy(ImVec2(chev_w + 4.0f, row_h));
+    ImGui::Dummy(ImVec2(chev_w + 4.0f * scale, row_h));
     ImGui::SameLine();
 
     // title
@@ -136,8 +138,9 @@ void ui::Header(App& a)
         ImVec2 p = ImGui::GetCursorScreenPos();
         float w = ImGui::GetContentRegionAvail().x;
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(ImVec2(p.x, p.y + 2.0f), ImVec2(p.x + w, p.y + 4.0f), theme::AZURE);
-        ImGui::Dummy(ImVec2(0.0f, 6.0f));
+        dl->AddRectFilled(ImVec2(p.x, p.y + 2.0f * scale),
+                          ImVec2(p.x + w, p.y + 4.0f * scale), theme::AZURE);
+        ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
     }
 
     // Row 2: character + zone | BUSY + cancel

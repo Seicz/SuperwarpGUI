@@ -14,11 +14,18 @@
 #include <vector>
 
 #include "config.h"
+#include "imgui.h"
 #include "proto.h"
 
 // ---- enums ---------------------------------------------------------------
 
-inline constexpr const char* GUI_VERSION = "0.2.2";
+inline constexpr const char* GUI_VERSION = "0.2.3";
+
+// Base font size we rasterize at (main.cpp's BuildFontAtScale uses BASE_FONT_PX
+// * dpi_scale). UI modules derive the current DPI scale from the actual
+// rendered font size, so all our hand-painted layout constants can multiply
+// against `ui::dpi()` for consistent sizing at any display scale.
+inline constexpr float BASE_FONT_PX = 14.0f;
 
 enum class Dispatch { Off, Party, All };
 enum class View     { Warp, Advanced };
@@ -141,6 +148,15 @@ namespace app
 // Forward declarations of UI module entry points.
 namespace ui
 {
+    // Current display DPI scale, derived from the actual rendered font size.
+    // Use this to scale any hand-painted layout pixel that isn't already going
+    // through ImGui's Style (which is pre-scaled via ScaleAllSizes in main).
+    inline float dpi()
+    {
+        float s = ImGui::GetFontSize() / BASE_FONT_PX;
+        return (s > 0.0f) ? s : 1.0f;
+    }
+
     void Header(App& a);
     void Systems(App& a, float panel_height);
     void Destinations(App& a);

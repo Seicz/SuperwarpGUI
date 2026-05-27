@@ -14,9 +14,29 @@
 #include "theme.h"
 
 #include <d3d11.h>
+#include <dwmapi.h>
 #include <tchar.h>
 #include <string>
 #include <cstdio>
+
+#pragma comment(lib, "dwmapi.lib")
+
+// DWMWA_USE_IMMERSIVE_DARK_MODE values. Windows 10 build 18985+ uses 20; older
+// builds (17763 - 18984) used the undocumented value 19. Try the modern value
+// first, fall back to the legacy one. Silently no-ops on older systems.
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#  define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1
+#  define DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 19
+#endif
+
+static void EnableDarkTitleBar(HWND hwnd)
+{
+    BOOL dark = TRUE;
+    if (FAILED(::DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark))))
+        ::DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, &dark, sizeof(dark));
+}
 
 // ---- D3D11 state -------------------------------------------------------
 static ID3D11Device*           g_pd3dDevice           = nullptr;
@@ -119,6 +139,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
         ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
         return 1;
     }
+
+    // Opt the title bar / non-client frame into Windows' dark theme so the
+    // chrome doesn't look like a white slab on top of the aether panel.
+    // No-op on pre-1809 Windows 10; the rest of the app is unaffected.
+    EnableDarkTitleBar(hwnd);
 
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);

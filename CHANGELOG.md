@@ -4,6 +4,30 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.3] - 2026-05-27
+
+### Fixed
+- **Dark title bar.** The native window chrome was rendering with the
+  Windows light theme regardless of the system setting, so a white slab
+  sat above the aether panel. Now opts into DWM dark mode via
+  `DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE, TRUE)` immediately
+  after window creation. Tries value 20 (Windows 10 20H1+) first, falls
+  back to 19 (Windows 10 1809 - 19H2). No-ops cleanly on older Windows.
+  `dwmapi.lib` is auto-linked via `#pragma comment`, no vcxproj change.
+- **Sidebar row overlap at high-DPI.** v0.2.2 scaled the font + ImGui
+  Style, but every hand-painted layout pixel (sidebar `ROW_H = 34.0f`,
+  `PAD_X = 5.0f`, paint offsets, chevron geometry, accent line, header /
+  footer child heights, default sidebar width, log console height,
+  drop-shadow + corner rounding) was still raw and 96-DPI-sized. On a
+  250% scale display, a 35px font was painting into a 34px row -> labels
+  spilled into the next row. Now every hand-painted constant multiplies
+  through a new `ui::dpi()` helper that derives the scale from the
+  rendered font size (`ImGui::GetFontSize() / BASE_FONT_PX`). Everything
+  paints at proportional size at any display scale.
+- Sidebar resize handle delta is now divided by `dpi()` so dragging at
+  high-DPI moves the handle by the same logical amount as at 100%, and
+  the stored width is scale-independent.
+
 ## [0.2.2] - 2026-05-27
 
 ### Fixed
