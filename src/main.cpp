@@ -25,6 +25,49 @@ static IDXGISwapChain*         g_pSwapChain           = nullptr;
 static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
 static UINT                    g_ResizeWidth = 0, g_ResizeHeight = 0;
 
+// ---- DPI state ---------------------------------------------------------
+// Track the currently-applied scale so we can rebuild fonts + style if the
+// window moves to a monitor with a different DPI (WM_DPICHANGED).
+static float                   g_AppliedDpiScale = 1.0f;
+static float                   g_PendingDpiScale = 0.0f; // != 0 -> rebuild requested
+
+// Build (or rebuild) the ImGui font atlas at the given pixel size.
+// Uses Segoe UI when available for crisp text at high-DPI; falls back to
+// ImGui's default ProggyClean otherwise.
+static void BuildFontAtScale(float scale)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->Clear();
+    const float px = 14.0f * scale;
+    bool loaded = false;
+    // Segoe UI ships with Windows and scales cleanly.
+    const char* candidates[] = {
+        "C:\\Windows\\Fonts\\segoeui.ttf",
+        "C:\\Windows\\Fonts\\tahoma.ttf",
+    };
+    for (const char* p : candidates)
+    {
+        if (io.Fonts->AddFontFromFileTTF(p, px) != nullptr) { loaded = true; break; }
+    }
+    if (!loaded)
+    {
+        ImFontConfig cfg;
+        cfg.SizePixels = 13.0f * scale;
+        io.Fonts->AddFontDefault(&cfg);
+    }
+    io.Fonts->Build();
+}
+
+// Re-setup the aether style from scratch and scale it. Avoids the
+// compounding-scale bug that would happen if we applied ScaleAllSizes()
+// twice across a DPI change.
+static void ApplyDpiScale(float scale)
+{
+    theme::setup(ImGui::GetStyle());
+    if (scale != 1.0f) ImGui::GetStyle().ScaleAllSizes(scale);
+    g_AppliedDpiScale = scale;
+}
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
 static bool   CreateDeviceD3D(HWND hWnd);
@@ -54,10 +97,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
 
     // Load config early so the window can be created with the persisted geometry.
     Config cfg = Config::load();
+    // First-launch defaults are scaled to the system DPI so we don't open as a
+    // tiny rectangle on a 200% / 250% display. Persisted geometry is honored
+    // as-is (already in physical pixels).
+    const UINT sys_dpi = ::GetDpiForSystem();
+    const float sdpi = (sys_dpi > 0) ? (float)sys_dpi / 96.0f : 1.0f;
     int x = cfg.window_x ? (int)*cfg.window_x : 100;
     int y = cfg.window_y ? (int)*cfg.window_y : 100;
-    int w = cfg.window_w ? (int)*cfg.window_w : 540;
-    int h = cfg.window_h ? (int)*cfg.window_h : 780;
+    int w = cfg.window_w ? (int)*cfg.window_w : (int)(540 * sdpi);
+    int h = cfg.window_h ? (int)*cfg.window_h : (int)(780 * sdpi);
     if (w < 320) w = 320;
     if (h < 380) h = 380;
 
@@ -84,7 +132,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
     io.IniFilename = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    theme::setup(ImGui::GetStyle());
+    // High-DPI bootstrap: query the actual scale for this window and build
+    // the font + style at that size. Without this the entire panel paints at
+    // logical (96 DPI) sizes and looks micro on a 200% / 250% display.
+    const float startup_dpi = ImGui_ImplWin32_GetDpiScaleForHwnd(hwnd);
+    BuildFontAtScale(startup_dpi);
+    ApplyDpiScale(startup_dpi);
 
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
@@ -117,6 +170,17 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
             g_pSwapChain->ResizeBuffers(0, g_ResizeWidth, g_ResizeHeight, DXGI_FORMAT_UNKNOWN, 0);
             g_ResizeWidth = g_ResizeHeight = 0;
             CreateRenderTarget();
+        }
+
+        // Pending DPI rebuild (set by WM_DPICHANGED). Must run before NewFrame.
+        if (g_PendingDpiScale != 0.0f)
+        {
+            const float new_scale = g_PendingDpiScale;
+            g_PendingDpiScale = 0.0f;
+            ImGui_ImplDX11_InvalidateDeviceObjects();
+            BuildFontAtScale(new_scale);
+            ApplyDpiScale(new_scale);
+            ImGui_ImplDX11_CreateDeviceObjects();
         }
 
         // --- pre-frame ---
@@ -272,6 +336,21 @@ static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         MINMAXINFO* mmi = (MINMAXINFO*)lParam;
         mmi->ptMinTrackSize.x = 320;
         mmi->ptMinTrackSize.y = 380;
+        return 0;
+    }
+    case WM_DPICHANGED:
+    {
+        // Window was moved to (or system changed to) a monitor with a
+        // different DPI. lParam holds Windows' suggested new window rect;
+        // honor it, then queue a font + style rebuild for the next frame.
+        const float new_scale = (float)LOWORD(wParam) / 96.0f;
+        const RECT* sug = (const RECT*)lParam;
+        ::SetWindowPos(hWnd, nullptr,
+                       sug->left, sug->top,
+                       sug->right  - sug->left,
+                       sug->bottom - sug->top,
+                       SWP_NOZORDER | SWP_NOACTIVATE);
+        g_PendingDpiScale = new_scale;
         return 0;
     }
     case WM_DESTROY:

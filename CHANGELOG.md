@@ -4,6 +4,35 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.2] - 2026-05-27
+
+### Fixed
+- **High-DPI rendering.** `ImGui_ImplWin32_EnableDpiAwareness()` was being
+  called (so Windows wasn't bitmap-scaling the window), but ImGui itself
+  was still painting at 96-DPI logical pixels - which meant a 250%-scale
+  display showed the entire panel at ~40% of intended size. Now:
+  - At startup, query `ImGui_ImplWin32_GetDpiScaleForHwnd(hwnd)` and build
+    the font at `14.0f * scale` pixels (prefers Segoe UI from
+    `C:\Windows\Fonts`, falls back to ProggyClean default).
+  - `ImGui::GetStyle().ScaleAllSizes(scale)` so paddings / spacings /
+    rounding / framing all scale proportionally.
+  - First-launch default window size scaled by `GetDpiForSystem()` so a
+    fresh install doesn't open as a tiny rectangle on a high-DPI display.
+    Persisted geometry is honored as-is (already in physical pixels).
+  - `WM_DPICHANGED` is now handled: window snaps to the OS-suggested rect
+    and the font atlas + style are rebuilt at the new scale on the next
+    frame (via a pending-scale flag, `ImGui_ImplDX11_InvalidateDeviceObjects`
+    / `_CreateDeviceObjects`, and a re-applied `theme::setup`). Lets you
+    drag the window between monitors of different DPI without restarting.
+
+## [0.2.1] - 2026-05-27
+
+### Changed
+- `PlatformToolset` bumped from `v143` to `v145` in both Release and Debug
+  configs so the project retargets cleanly on VS installs that ship only
+  the latest MSVC Build Tools (14.50+). No code changes; same source
+  compiles under either toolset.
+
 ## [0.2.0] - 2026-05-27
 
 Full-feature-parity port of the Rust GUI (`superwarp-gui` v0.9.4) to

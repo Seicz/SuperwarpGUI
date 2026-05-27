@@ -18,7 +18,7 @@
 
 // ---- enums ---------------------------------------------------------------
 
-inline constexpr const char* GUI_VERSION = "0.2.0";
+inline constexpr const char* GUI_VERSION = "0.2.2";
 
 enum class Dispatch { Off, Party, All };
 enum class View     { Warp, Advanced };
