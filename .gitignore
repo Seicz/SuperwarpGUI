@@ -1,0 +1,38 @@
+# Visual Studio / MSBuild output
+.vs/
+build/
+**/obj/
+**/x64/
+**/Win32/
+**/Release/
+**/Debug/
+*.user
+*.suo
+*.obj
+*.pdb
+*.ipdb
+*.iobj
+*.exp
+*.lib
+*.res
+*.recipe
+*.tlog
+*.log
+*.vsidx
+
+# Binaries ship as Release assets, not in git
+*.dll
+*.exe
+
+# Archives
+*.7z
+*.zip
+
+# OS cruft
+Thumbs.db
+desktop.ini
+
+# Runtime state the companion writes next to its exe
+superwarp_gui.json
+# env files
+*.env
