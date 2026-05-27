@@ -272,7 +272,24 @@ void app::RenderFrame(App& a)
 
     const float total_h  = ImGui::GetContentRegionAvail().y;
     const float header_h = 70.0f * scale;
-    const float footer_h = 56.0f * scale;
+
+    // Footer height tracks its content (up to 3 most-recent log lines, plus
+    // the connect-error line when offline). Mirrors Rust's TopBottomPanel
+    // auto-sizing behavior instead of a fixed strip that grows with the
+    // window and leaves a huge empty band when the log is mostly empty.
+    const size_t footer_log_n = (a.log_lines.size() > 3) ? 3 : a.log_lines.size();
+    const bool   footer_err   = !a.connect_error.empty()
+                              && net::GetStatus() != net::Status::Connected;
+    const size_t footer_lines = footer_log_n + (footer_err ? 1 : 0);
+    const float  line_h       = ImGui::GetTextLineHeightWithSpacing();
+    const float  footer_pad_y = 6.0f * scale;
+    const float  footer_h     = 2.0f * footer_pad_y + footer_lines * line_h;
+
+    // ImGui places ItemSpacing.y between each successive child in the column,
+    // so a body sized to `total - header - footer` would push the footer
+    // partway off-screen by 2*spacing. Subtract that here.
+    const float spacing_y = ImGui::GetStyle().ItemSpacing.y;
+    const float body_h    = total_h - header_h - footer_h - 2.0f * spacing_y;
 
     // Header
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 8.0f * scale));
@@ -288,8 +305,6 @@ void app::RenderFrame(App& a)
     float side_w = side_w_unscaled * scale;
     if (side_w < side_w_min) side_w = side_w_min;
     if (side_w > side_w_max) side_w = side_w_max;
-
-    const float body_h = total_h - header_h - footer_h;
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f * scale, 8.0f * scale));
     ImGui::BeginChild("##sys", ImVec2(side_w, body_h), ImGuiChildFlags_None);

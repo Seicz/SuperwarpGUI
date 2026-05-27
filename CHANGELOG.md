@@ -4,6 +4,24 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.5] - 2026-05-27
+
+### Fixed
+- **Footer was a fixed-height "chat-log slab" that grew with the window.**
+  The bottom strip was hard-coded at `56 * dpi` pixels regardless of how
+  much it actually had to show, so once the window was stretched tall the
+  footer turned into a big empty INPUT-colored panel beneath one line of
+  text. Now the footer auto-sizes from its content (up to 3 most-recent
+  log lines + optional connect-error line), the way Rust's
+  `TopBottomPanel::bottom` does. An empty footer collapses to a thin
+  padding strip.
+- **Body height wasn't accounting for `ItemSpacing.y` between successive
+  child windows.** `body_h = total - header - footer` would push the
+  footer 2 * spacing pixels below the visible region (footer's bottom
+  was clipped, its top showed the dead INPUT band described above).
+  Now subtracts `2 * ItemSpacing.y` from `body_h` so the three children
+  stack exactly within the available height.
+
 ## [0.2.4] - 2026-05-27
 
 ### Changed (visual parity with the Rust GUI)
