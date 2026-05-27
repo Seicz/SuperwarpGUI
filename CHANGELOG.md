@@ -5,6 +5,12 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.9.4] -- warning cleanup
+
+- Removed an unnecessary `mut` on the `chev` closure binding in
+  `setup_aether_theme` (the chevron painter is `Fn`, not `FnMut`; cargo
+  flagged it with `unused_mut`).
+
 ## [0.9.3] -- size lever pass: custom font + build-time icon decode
 
 A binary-size pass after measuring the v0.9.2 build with `cargo bloat`:

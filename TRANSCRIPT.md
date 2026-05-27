@@ -283,3 +283,33 @@ references the would-be-dropped features, so the changes are isolated.
 **Not compiled here** (no Rust toolchain in the work environment) - verified
 the egui 0.31 `FontDefinitions { font_data: BTreeMap<String, Arc<FontData>> }`
 shape against the egui custom_font example before wiring. Eric measures.
+
+---
+
+## Session (GUI v0.9.4) -- result + warning cleanup
+
+**Eric:** Built v0.9.3 clean. `cargo bloat --release --crates`: file size
+3.0 MiB -> **2.2 MiB**. `.text` unchanged at 1.2 MiB. The `image` / `png` /
+`fdeflate` / `flate2` / `miniz_oxide` rows are still present despite the
+icon-decode change. Also flagged an `unused_mut` warning on `chev` at
+`src/main.rs:741`.
+
+**Claude:** Owned the prediction miss on the image/png chain. The
+`from_png_bytes` call path IS gone (verified post-patch), but `image` is being
+pulled by **arboard** -- the clipboard crate egui-winit depends on -- which
+enables image-data support by default to handle clipboard image content.
+Cargo features are strictly additive, so a top-level `arboard = { ...,
+default-features = false }` won't disable a feature a transitive dep activated.
+Disabling it cleanly would mean patching egui-winit or vendoring arboard;
+not worth chasing ~120 KiB of `.text` through that.
+
+Headline: 2.2 MiB is the realistic floor for glow + winit + egui + arboard on
+this codebase. The font lever delivered exactly the predicted ~800 KiB. The
+remaining gap to the ImGui demo (~1 MiB on disk) is structural framework
+cost, not waste.
+
+**Built (v0.9.4).** Single-line fix: dropped `mut` from the `chev` closure
+binding in `setup_aether_theme` (the closure is `Fn`, not `FnMut`).
+Bumped Cargo.toml to 0.9.4, prepended CHANGELOG, appended this note,
+bundled as `superwarp-gui-v0.9.4-patch.zip` (only the changed files this
+round: `src/main.rs` + `Cargo.toml` + the doc updates).

@@ -738,7 +738,7 @@ impl WarpApp {
                 let sw = (0.17 * h).max(2.0);
                 let gap = 0.32 * h; // horizontal offset between the two chevrons
                 let lx0 = rect.left() + sw * 0.5;
-                let mut chev = |lx: f32, color: Color32| {
+                let chev = |lx: f32, color: Color32| {
                     let top = egui::pos2(lx, cy - half);
                     let apex = egui::pos2(lx + dx, cy);
                     let bot = egui::pos2(lx, cy + half);
