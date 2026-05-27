@@ -53,3 +53,25 @@ smart command + target modifiers). Built the demo:
   (caught and removed a 1.92 two-arg PushFont mismatch).
 
 Packaged as superwarp-companion-v0.1.0.zip.
+
+---
+
+**User:** [Pasted Release|Win32 build log on VS 18 / MSVC 14.50 (toolset v145).
+Errors: C3927/C2146/C4430/C2660 cascade pointing at net.cpp line 37 with
+references to S_un_b and inet_pton arg-count mismatch; plus C1041 about multiple
+CL.EXE writing vc145.pdb.]
+
+**Claude:** Diagnosed the cascade as a Windows BSD-compat macro collision:
+`<inaddr.h>` (via `<ws2tcpip.h>`) defines `s_host` as `S_un.S_un_b.s_b2`, which
+the preprocessor expanded over the `std::string s_host` declaration - producing
+every error including the inet_pton "function does not take 2 arguments" message
+(the second argument was rewritten into nonsense). Renamed to `s_remote_host`
+and added a defensive `#undef` block in net.cpp for the BSD-compat siblings
+(`s_host`, `s_net`, `s_imp`, `s_impno`, `s_lh`) to harden against recurrence.
+
+The PDB error was the standard parallel-CL `vc145.pdb` write race. Disabled
+compile-time PDB in Release (`DebugInformationFormat=None`) and switched Debug
+to embedded `/Z7` (`OldStyle`) - both eliminate the .pdb file entirely and avoid
+the race without needing `/FS`.
+
+Re-packaged as superwarp-companion-v0.1.1.zip.
