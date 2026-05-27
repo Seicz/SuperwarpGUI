@@ -53,26 +53,37 @@ static float                   g_PendingDpiScale = 0.0f; // != 0 -> rebuild requ
 
 // Build (or rebuild) the ImGui font atlas at the given pixel size.
 // Uses Segoe UI when available for crisp text at high-DPI; falls back to
-// ImGui's default ProggyClean otherwise.
+// ImGui's default ProggyClean otherwise. Includes glyph ranges beyond basic
+// Latin so the destination state dots (●○·) and the em-dash in the title
+// bar actually render instead of showing as boxes.
 static void BuildFontAtScale(float scale)
 {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
-    const float px = 14.0f * scale;
+    const float px = 12.0f * scale;
+
+    // Persistent so the font atlas can keep referencing it.
+    static const ImWchar ranges[] = {
+        0x0020, 0x00FF, // Basic Latin + Latin-1 Supplement (includes ·)
+        0x2010, 0x2030, // hyphens, dashes (— em-dash), ellipsis
+        0x25A0, 0x25FF, // Geometric Shapes (● ○)
+        0,
+    };
+
     bool loaded = false;
-    // Segoe UI ships with Windows and scales cleanly.
     const char* candidates[] = {
         "C:\\Windows\\Fonts\\segoeui.ttf",
         "C:\\Windows\\Fonts\\tahoma.ttf",
     };
     for (const char* p : candidates)
     {
-        if (io.Fonts->AddFontFromFileTTF(p, px) != nullptr) { loaded = true; break; }
+        if (io.Fonts->AddFontFromFileTTF(p, px, nullptr, ranges) != nullptr) { loaded = true; break; }
     }
     if (!loaded)
     {
         ImFontConfig cfg;
-        cfg.SizePixels = 13.0f * scale;
+        cfg.SizePixels = 11.0f * scale;
+        cfg.GlyphRanges = ranges;
         io.Fonts->AddFontDefault(&cfg);
     }
     io.Fonts->Build();
@@ -129,7 +140,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
     if (w < 320) w = 320;
     if (h < 380) h = 380;
 
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"superwarp - FFXI",
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"superwarp \u2014 FFXI",
                                 WS_OVERLAPPEDWINDOW, x, y, w, h,
                                 nullptr, nullptr, wc.hInstance, nullptr);
 
@@ -239,19 +250,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
             a.config.mark_dirty();
         }
 
-        // Dynamic title: "<Character> - superwarp v<addon> (GUI v<gui>)"
+        // Dynamic title: "<Character> -- superwarp v<addon> (GUI v<gui>)"
+        // (u2014 em-dash to match the Rust GUI's title style.)
         std::string title;
         if (a.character.empty())
         {
             char buf[160];
-            std::snprintf(buf, sizeof(buf), "superwarp - FFXI  (GUI v%s)", GUI_VERSION);
+            std::snprintf(buf, sizeof(buf), u8"superwarp \u2014 FFXI  (GUI v%s)", GUI_VERSION);
             title = buf;
         }
         else
         {
             const char* av = a.addon_version.empty() ? "..." : a.addon_version.c_str();
             char buf[200];
-            std::snprintf(buf, sizeof(buf), "%s - superwarp v%s  (GUI v%s)",
+            std::snprintf(buf, sizeof(buf), u8"%s \u2014 superwarp v%s  (GUI v%s)",
                           a.character.c_str(), av, GUI_VERSION);
             title = buf;
         }

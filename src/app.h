@@ -19,13 +19,14 @@
 
 // ---- enums ---------------------------------------------------------------
 
-inline constexpr const char* GUI_VERSION = "0.2.3";
+inline constexpr const char* GUI_VERSION = "0.2.4";
 
 // Base font size we rasterize at (main.cpp's BuildFontAtScale uses BASE_FONT_PX
 // * dpi_scale). UI modules derive the current DPI scale from the actual
 // rendered font size, so all our hand-painted layout constants can multiply
 // against `ui::dpi()` for consistent sizing at any display scale.
-inline constexpr float BASE_FONT_PX = 14.0f;
+// Tuned to match the Rust GUI's Hack 11-12pt visual density.
+inline constexpr float BASE_FONT_PX = 12.0f;
 
 enum class Dispatch { Off, Party, All };
 enum class View     { Warp, Advanced };

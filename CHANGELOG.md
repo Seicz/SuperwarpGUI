@@ -4,6 +4,35 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.4] - 2026-05-27
+
+### Changed (visual parity with the Rust GUI)
+
+- **Destination state dots are now Unicode** (●○·) instead of ASCII
+  (o/x/.). Matches the Rust GUI exactly. The FFXI-chat-Unicode gotcha
+  doesn't apply here -- the companion is its own desktop window, the
+  Segoe UI atlas easily covers these glyphs, and ImGui renders them at
+  the same crispness as everything else.
+- **Em-dash in the window title** (`Seicz \u2014 superwarp v1.6.0 ...`)
+  to match the Rust GUI's title formatting.
+- **Header "superwarp" title bumped to 1.4x font size** via a custom
+  `AddText` render. Mirrors Rust's `monospace(16)` vs body `monospace(11)`
+  ratio so the banner looks like a banner rather than just another label.
+- **Sidebar layout density.** Pushed `WindowPadding(0,0)` on the inner
+  scroll child so the first system row sits tight under "SYSTEMS" rather
+  than 20+ pixels below it at high-DPI. The `HorizontalScrollbar` flag on
+  the same child was dropped (long labels just clip at the right edge
+  now, matching the Rust ScrollArea behavior).
+- **Base font reduced to 12pt (was 14pt)** to bring overall text density
+  in line with the Rust GUI's Hack 11pt. At 250%-scale that's 30px text
+  instead of 35px; rows feel tighter, more system entries fit visibly,
+  and the proportions of label-to-count-to-row-height match Rust.
+- **Glyph ranges expanded** in `BuildFontAtScale`: now loads Basic Latin +
+  Latin-1 (includes `·`), General Punctuation 0x2010-0x2030 (includes
+  `\u2014` em-dash + ellipsis + bullet), and Geometric Shapes 0x25A0-0x25FF
+  (includes `\u25CF` and `\u25CB`). Without these the atlas would render
+  the new glyphs as little boxes.
+
 ## [0.2.3] - 2026-05-27
 
 ### Fixed

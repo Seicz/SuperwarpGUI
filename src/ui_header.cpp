@@ -66,11 +66,20 @@ void ui::Header(App& a)
     ImGui::Dummy(ImVec2(chev_w + 4.0f * scale, row_h));
     ImGui::SameLine();
 
-    // title
-    ImGui::PushStyleColor(ImGuiCol_Text, theme::v4(theme::WHITE));
-    ImGui::TextUnformatted("superwarp");
-    ImGui::PopStyleColor();
-    ImGui::SameLine();
+    // title -- bigger than the rest of the UI to mirror the Rust GUI's
+    // monospace(16) vs body monospace(11) ratio.
+    {
+        ImFont* f = ImGui::GetFont();
+        const float title_size = ImGui::GetFontSize() * 1.4f;
+        const char* title = "superwarp";
+        const ImVec2 ts = f->CalcTextSizeA(title_size, FLT_MAX, 0.0f, title);
+        const ImVec2 cp = ImGui::GetCursorScreenPos();
+        const float ty = cp.y + (row_h - ts.y) * 0.5f;
+        ImGui::GetWindowDrawList()->AddText(f, title_size, ImVec2(cp.x, ty),
+                                            theme::WHITE, title);
+        ImGui::Dummy(ImVec2(ts.x, row_h));
+        ImGui::SameLine();
+    }
 
     // version
     {

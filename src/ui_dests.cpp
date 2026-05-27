@@ -274,7 +274,7 @@ void ui::Destinations(App& a)
         }
 
         ImGui::BeginGroup();
-        const char* glyph = unlocked ? (*unlocked ? "o" : "x") : ".";
+        const char* glyph = unlocked ? (*unlocked ? u8"\u25CF" : u8"\u25CB") : u8"\u00B7";
         ImU32 gcol = unlocked ? (*unlocked ? theme::UNLOCKED : theme::LOCKED) : theme::MUTED;
         ImGui::PushStyleColor(ImGuiCol_Text, theme::v4(gcol));
         ImGui::TextUnformatted(glyph);

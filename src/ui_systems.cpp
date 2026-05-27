@@ -123,8 +123,10 @@ void ui::Systems(App& a, float /*panel_height*/)
         return;
     }
 
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::BeginChild("##sysscroll", ImVec2(0, 0), ImGuiChildFlags_None,
-                      ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_HorizontalScrollbar);
+                      ImGuiWindowFlags_AlwaysVerticalScrollbar);
+    ImGui::PopStyleVar();
 
     const ImVec2 area_top = ImGui::GetCursorScreenPos();
     const float  width    = ImGui::GetContentRegionAvail().x;
