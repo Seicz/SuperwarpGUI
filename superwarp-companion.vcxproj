@@ -13,7 +13,7 @@
 
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
-    <ProjectGuid>{8F3C1A24-6B7D-4E91-9C2F-7A5E0D1B4C88}</ProjectGuid>
+    <ProjectGuid>{B7A4C2F1-3E8D-4A6B-9D52-1F8C0E5B2A77}</ProjectGuid>
     <RootNamespace>superwarp_companion</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>superwarp-companion</ProjectName>
@@ -56,7 +56,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;WIN32_LEAN_AND_MEAN;NOMINMAX;IMGUI_DISABLE_DEMO_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)imgui;$(ProjectDir)imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)imgui;$(ProjectDir)imgui\backends;$(ProjectDir)third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>None</DebugInformationFormat>
     </ClCompile>
     <Link>
@@ -78,7 +78,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;WIN32_LEAN_AND_MEAN;NOMINMAX;IMGUI_DISABLE_DEMO_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)imgui;$(ProjectDir)imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)imgui;$(ProjectDir)imgui\backends;$(ProjectDir)third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
     </ClCompile>
     <Link>
@@ -90,8 +90,18 @@
 
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\ui.cpp" />
+    <ClCompile Include="src\app.cpp" />
+    <ClCompile Include="src\config.cpp" />
+    <ClCompile Include="src\fuzzy.cpp" />
     <ClCompile Include="src\net.cpp" />
+    <ClCompile Include="src\proto.cpp" />
+    <ClCompile Include="src\theme.cpp" />
+    <ClCompile Include="src\util.cpp" />
+    <ClCompile Include="src\ui_header.cpp" />
+    <ClCompile Include="src\ui_systems.cpp" />
+    <ClCompile Include="src\ui_dests.cpp" />
+    <ClCompile Include="src\ui_advanced.cpp" />
+    <ClCompile Include="src\ui_footer.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
@@ -100,8 +110,14 @@
     <ClCompile Include="imgui\backends\imgui_impl_dx11.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\ui.h" />
+    <ClInclude Include="src\app.h" />
+    <ClInclude Include="src\config.h" />
+    <ClInclude Include="src\fuzzy.h" />
     <ClInclude Include="src\net.h" />
+    <ClInclude Include="src\proto.h" />
+    <ClInclude Include="src\theme.h" />
+    <ClInclude Include="src\util.h" />
+    <ClInclude Include="third_party\nlohmann\json.hpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

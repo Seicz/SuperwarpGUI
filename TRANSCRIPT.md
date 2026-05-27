@@ -1,77 +1,235 @@
-# Transcript
+# Transcript - superwarp companion v0.2.0 (C++/ImGui full port)
 
-Session log for the superwarp companion demo. User turns are verbatim; Claude
-turns are reconstructed from session context (summarized where the original was
-long-form prose) and appended as work proceeded.
+A condensed record of the session that produced the v0.2.0 C++/Dear ImGui
+port of the Rust `superwarp-gui`. Earlier sessions (v0.1.0 demo, v0.1.1 build
+fix, v0.9.3/0.9.4 Rust size-optimization passes) are summarized for context
+but not reproduced verbatim.
 
----
+## Prior sessions (summary)
 
-**User:** [Provided Windower Lua wiki links: Events, Functions, Game-ID-Reference;
-noted LuaCore.dll is Windower4's internal Lua.] Looking to combine the GUIs for
-addons superwarp, fisher, and crucible. Trying to decide on C++ or Rust for the
-GUI. Research project at this point. No building.
+1. **C++ vs Rust research.** Decided on companion-window architecture (no
+   D3D overlay without Windower plugin SDK). C++/Dear ImGui floor ~1MB vs
+   Rust/egui ~3MB; Eric committed to a C++ demo to weigh against the Rust
+   version.
 
-**Claude:** Framed the real fork: the language choice is downstream of *where the
-GUI renders*. Branch A (in-game overlay) favors C++/Dear ImGui built on the
-existing FFXiTools D3D8 hook, gated by the d3d8->d3d9 device-chain work. Branch B
-(separate companion window) favors Rust/egui, generalizing the existing Fisher
-GUI, with a LuaSocket hub addon over localhost TCP for event-driven comms. Noted
-the three addons are independent Lua states needing a hub aggregator, and asked
-which experience was intended.
+2. **v0.1.0 demo** (`superwarp-companion/`). Win32+D3D11+ImGui scaffolding,
+   vendored ImGui v1.92.8, generic command-relay UI talking to a hub Lua
+   addon (`hub/superwarp_hub.lua`) on `127.0.0.1:51337`. Lean vcxproj
+   config: `/MT`, `/O1` favor-size, LTCG, REF+ICF, RTTI off.
 
-**User:** Can't do in-game D3D without the plugin SDK. Companion app is the only
-way. But C++ with ImGui is new to me. Want a leaner file size — the Rust/egui
-solution is over 3 MB after compile.
+3. **v0.1.1 fix.** Two MSVC-only issues:
+   - `<inaddr.h>` (pulled in via `<ws2tcpip.h>`) defines `s_host` as a
+     BSD-compat macro for `in_addr.S_un.S_un_b.s_b2`, which silently
+     rewrote the `std::string s_host` member into a struct-field access.
+     Renamed to `s_remote_host` + defensive `#undef` block.
+   - C1041 PDB collision: Release now sets `DebugInformationFormat=None`;
+     Debug uses `OldStyle` (`/Z7`).
 
-**Claude:** Confirmed the size ordering is real (ImGui minimal ~0.5-1.5 MB vs
-egui's higher floor from winit+wgpu). Recommended first running the cheap
-experiment — egui with the glow backend + a size profile (opt-level "z", LTO,
-codegen-units 1, panic abort, strip) commonly drops to ~1.5-2 MB — before
-committing to a rewrite. Noted egui was modeled on Dear ImGui so the immediate-
-mode intuition transfers; only the Win32 + D3D backend boilerplate is new. Flagged
-CRT linkage (/MT vs /MD) as the biggest size lever and raw Winsock over asio.
+4. **Rust v0.9.3 / v0.9.4 size-optimization passes** on the full Rust GUI
+   (2077 lines). Strategy:
+   - `eframe = { default-features = false, features = ["glow"] }` — drops
+     accesskit / wayland / x11 / web_screen_reader.
+   - `build.rs` decodes `assets/icon.png` to raw RGBA at OUT_DIR (drops
+     image/png/fdeflate/flate2/miniz_oxide from the runtime).
+   - Vendored Hack-Regular.ttf via `install_fonts()` (drops the default
+     egui font path).
+   - Found `arboard` (clipboard via egui-winit) transitively pulls
+     `image`/`png` back in. cargo features are additive so this is the
+     binding floor.
+   - 3.0 MiB → 2.2 MiB (font drop = ~800KB). `.text` unchanged at 1.2 MiB.
+     **2.2 MiB declared the realistic Rust floor.**
+   - v0.9.4: trivial `mut` removal on a `Fn` closure at line 741.
 
-**User:** It's nothing, but that's not the point. 3 MB on unnecessary clutter is
-still unnecessary. Want lean and clean. Would like to give it a demo. Rewrite the
-superwarp GUI in C++ with ImGui.
+5. **End-of-session.** Eric said "this is where we draw the line!"
 
-**Claude:** Confirmed superwarp's source wasn't in the project; pulled Akaden's
-README to get the exact command surface (all warp systems + sub-commands + the
-smart command + target modifiers). Built the demo:
+## This session
 
-- Vendored Dear ImGui v1.92.8 (pinned tag) with Win32 + DX11 backends.
-- `src/net.{h,cpp}`: Winsock loopback client, one worker thread, queued sends,
-  timeout-guarded non-blocking connect, auto-reconnect.
-- `src/ui.{h,cpp}`: data-driven panel; every superwarp system described as a row
-  in a table and rendered generically. Target selector, destination input,
-  sub-command buttons, list-missing, smart-warp, global cancel/reset, log pane.
-- `src/main.cpp`: trimmed ImGui Win32+DX11 host wiring in the net lifecycle.
-- `hub/superwarp_hub.lua`: generic loopback relay (send_command), ASCII-only
-  chat output, single-companion accept with line buffering.
-- Size-tuned Release vcxproj (/MT, /O1 favor-size, LTCG, REF+ICF, RTTI off).
-- Verified ImGui API usage by syntax-checking ui.cpp against the pinned headers
-  (caught and removed a 1.92 two-arg PushFont mismatch).
+> **User:** ........annnnnd yet, there is that nagging sensation in the
+> back of my mind asking "what if?", I think we should still take a look
+> at the C++ approach. there isn't any harm in going ham and porting it
+> over, and you said it yourself, its basically trivial. I say pull that
+> trigger and go for it. You have the entire rust base, so, be free!
 
-Packaged as superwarp-companion-v0.1.0.zip.
+> **Claude:** Alright — full parity port, going hard. Let me read your
+> Rust carefully first so the port is faithful, not approximate.
 
----
+Sequence of work:
 
-**User:** [Pasted Release|Win32 build log on VS 18 / MSVC 14.50 (toolset v145).
-Errors: C3927/C2146/C4430/C2660 cascade pointing at net.cpp line 37 with
-references to S_un_b and inet_pton arg-count mismatch; plus C1041 about multiple
-CL.EXE writing vc145.pdb.]
+### 1. Reconnaissance
 
-**Claude:** Diagnosed the cascade as a Windows BSD-compat macro collision:
-`<inaddr.h>` (via `<ws2tcpip.h>`) defines `s_host` as `S_un.S_un_b.s_b2`, which
-the preprocessor expanded over the `std::string s_host` declaration - producing
-every error including the inet_pton "function does not take 2 arguments" message
-(the second argument was rewritten into nonsense). Renamed to `s_remote_host`
-and added a defensive `#undef` block in net.cpp for the BSD-compat siblings
-(`s_host`, `s_net`, `s_imp`, `s_impno`, `s_lh`) to harden against recurrence.
+Read the Rust source structurally to enumerate ports needed:
 
-The PDB error was the standard parallel-CL `vc145.pdb` write race. Disabled
-compile-time PDB in Release (`DebugInformationFormat=None`) and switched Debug
-to embedded `/Z7` (`OldStyle`) - both eliminate the .pdb file entirely and avoid
-the race without needing `/FS`.
+- Constants + Dispatch enum + GUI_VERSION
+- Data types: Currency / Dest / SystemList / UnlockDest / UnlockSystem /
+  ServerMsg (tagged union, `t` field)
+- Config + persistence (JSON sibling to exe)
+- SystemUnlocks helper + `destkey` (uses `\x1e` separator)
+- Connection / View / WarpApp struct (40+ fields)
+- WarpApp impl: connect / send / handle_msg / poll_network /
+  unlock helpers
+- setup_aether_theme (egui style → ImGui style)
+- render_header / render_systems (with drag-reorder animation) /
+  render_destinations / render_advanced / render_footer
+- Fuzzy: fclass / fbonus / fuzzy_score (gap-aware O(m*n) with 1-indexed
+  scratch arrays mirroring the Lua) / fuzzy_lev / fuzzy_clean /
+  dest_fields / dest_fuzzy / dest_approx
+- Utilities: sub_order (numeric-aware), now_unix, time_ago, fmt_thousands
 
-Re-packaged as superwarp-companion-v0.1.1.zip.
+### 2. Project tree
+
+```
+swc2/
+  imgui/           (copied from v0.1.1, v1.92.8)
+  third_party/
+    nlohmann/json.hpp   (curl'd 3.11.3, 899KB, tree-shakes with LTO)
+  src/             (new modules below)
+```
+
+### 3. Modules built (in order)
+
+`proto.{h,cpp}` — typed message struct + nlohmann::json parse/build.
+Safe-getter helpers `get_or<T>` mirror serde `default`.
+
+`fuzzy.{h,cpp}` — direct port of the Rust matcher. Constants verbatim
+(F_MATCH=16, F_GAP_START=-3, ..., FUZZY_EXACT=1_000_000). One-for-one
+loop translation; `to_lower` open-coded so it works on raw uint8_t.
+
+`config.{h,cpp}` — load/save `superwarp_gui.json` next to the exe via
+`GetModuleFileNameW`. `put_opt`/`get_opt` helpers handle the `Option<f32>`
+window-geometry fields.
+
+`theme.{h,cpp}` — palette as `ImU32` constants + `v4()` helper for
+`ImVec4`. `theme::setup(ImGuiStyle&)` configures every `ImGuiCol_*` field
++ rounding + padding + border sizes.
+
+`net.{h,cpp}` — worker-thread Winsock client. State machine:
+Disconnected → Connecting (800ms timeout) → Connected → loop with
+~50ms `select` waits. Outgoing `deque<string>` + cv; incoming
+`vector<ServerMsg>` parsed on the worker. `getaddrinfo` for hostname
+support. `s_host`/`s_net` `#undef` block carried over from v0.1.1.
+`ConsumeConnectedEvent()` lets the app re-request state/lists/unlocks
+on every reconnect.
+
+`util.{h,cpp}` — `destkey` (`\x1e` separator), `now_unix`, `time_ago`
+(just now / Ns / Nm / Nh / Nd), `fmt_thousands` (avoiding the
+`abs(INT64_MIN)` UB via `+1`-and-flip), `sub_order` returning
+`{group, num, text}` for numeric-aware sub sort.
+
+`app.{h,cpp}` — `App` struct (public fields), `Dispatch`/`View` enums,
+`SystemUnlocks` map type, lifecycle (`Init`/`Tick`/`Shutdown`),
+command issuers (`WarpTo`/`SubCmd`/`Cancel`/`Scan`/`SetDebug`/
+`Reconnect`), unlock helpers (`dest_unlocked` / `system_currency` /
+`system_partial` / `system_updated` / `unlock_counts`),
+`effective_order`, frame orchestration (`RenderFrame` builds the root
+window covering the viewport, then a header child, body child with
+resize handle, footer child).
+
+`ui_header.cpp` — painted multicolor double-chevron via `ImDrawList`
+`AddLine`+`AddCircleFilled` (geometry exactly matches the Rust:
+`half=0.30*h`, `dx=0.50*h`, `sw=max(0.17*h,2)`, `gap=0.32*h`).
+Title + version + right-aligned cluster (pin / advanced toggle /
+status badge). Accent line via raw `AddRectFilled`. Second row:
+character + zone(id) + BUSY+cancel.
+
+`ui_systems.cpp` — the heaviest. ImGui has no `animate_value_with_time`,
+so per-key animated y-offset map (`static std::unordered_map<string, float>`),
+`ease(current, target, dt, tau)` with `1 - exp(-dt/tau)` decay
+(frame-rate independent). Two-pass:
+   - pass 1: paint each non-drag row at `area_top + animated_y`, place
+     `InvisibleButton` for interaction, set `Hand` cursor on hover, start
+     drag at 6px threshold, commit click on `IsItemDeactivated` +
+     `!IsMouseDragging`.
+   - pass 2: paint the gap indicator (azure α=26) at the insertion slot,
+     paint the dragged tab on top (drop shadow + filled tile), commit
+     drop on `IsMouseReleased`.
+The pre-loop builds `without_k` (key order with the dragged key removed)
+to assign target slots opening a gap at `ins`.
+
+`ui_dests.cpp` — header (long name + `[short]`), right-aligned dispatch
+toggle + scan chip, metadata row (currency in gold + scanned-ago
+right-aligned in muted), search box (cancels `clear_search_pending`
+when edited), actions row (subcommand chips + cancel/reset, browse-only),
+results list. Two build modes:
+   - `build_browse_rows` (alpha/numeric-aware sort: zone → sub_order
+     → system),
+   - `build_search_rows` (returns `approx` flag): exact / fuzzy /
+     approx tiers, ranked best-first by score, then label length, then
+     zone name.
+Row render: state dot `o`/`x`/`.`, click-to-warp button with "Zone - point"
+or plain label, right-aligned cluster `[system_long]` (search only) +
+cost (LOCKED if unaffordable).
+
+`ui_advanced.cpp` — Connection (host/port inputs, apply+reconnect,
+defaults), Diagnostics (addon-debug checkbox driving `//sw debug`,
+log line count + clear, 220px scrolling log console with auto-stick-
+to-bottom), About (GUI v0.2.0 + addon version + byline).
+
+`ui_footer.cpp` — last 3 log lines + offline reason (`connect_error`).
+
+`main.cpp` — Win32 + D3D11 host adapted from v0.1.1. Loads `Config`
+early so the window can be created with the persisted geometry;
+applies `HWND_TOPMOST` on startup if `always_on_top`; polls
+`a.always_on_top` each frame to retoggle; persists `window_x/y/w/h`
+via `GetWindowRect` (3s throttled save); dynamic title via
+`SetWindowTextW`; UTF-8 → UTF-16 `widen()` helper.
+
+### 4. Project file
+
+`superwarp-companion.vcxproj` updated: all new sources listed; include
+dir `$(ProjectDir)third_party` added; all the previous size-tuned
+settings retained.
+
+### 5. Verification
+
+Syntax-checked all platform-independent units under g++ with
+`-std=c++17 -fsyntax-only`:
+
+- `proto.cpp` — required moving `json.hpp` from `third_party/` to
+  `third_party/nlohmann/` so `<nlohmann/json.hpp>` resolves.
+- `fuzzy.cpp`, `util.cpp` — clean.
+- `theme.cpp`, `app.cpp` — `app.cpp` needed `std::clamp` instead of
+  `ImClamp` (latter lives in `imgui_internal.h`).
+- `ui_header.cpp` — needed `<algorithm>` for `std::max` in
+  `paint_chevron`.
+- `ui_systems.cpp` — needed `ImRect` removed (also lives in
+  `imgui_internal.h`); switched to bare `ImVec2 row_min` / `row_max`.
+- `ui_dests.cpp` — needed `<cctype>` for `std::tolower`.
+- `ui_advanced.cpp`, `ui_footer.cpp` — clean.
+
+`net.cpp` and `main.cpp` review-only here (Linux toolchain has no
+`<d3d11.h>`/`<winsock2.h>`); patterns lifted from v0.1.1 base which
+compiled and ran in-game.
+
+ImGui v1.92.8 core (`imgui.cpp`/`imgui_draw.cpp`/`imgui_tables.cpp`/
+`imgui_widgets.cpp`) compiled clean with our headers in scope (smoke
+test that nothing in our code messed up its translation units).
+
+### 6. Bundling
+
+Project zipped as `superwarp-companion-v0.2.0.zip` and staged in
+`/mnt/user-data/outputs/`. Working copy retained at `/home/claude/swc2/`
+for ongoing edits.
+
+### Estimates & open items
+
+- **Realistic size after MSVC Release build:** ~1.2 – 1.5 MiB. Eric
+  measures actual size on his side.
+- **Visual delta vs Rust:** the painted chevron geometry is exact;
+  the aether palette is exact; spacing is similar but ImGui defaults
+  differ from egui by a few pixels in places — likely visible on
+  first launch and easy to tune.
+- **Drag-reorder animation:** functional, lerp tuned to feel similar
+  to egui's; may need easing constant tweaks once it's in front of
+  Eric's eyes.
+- **App icon:** not embedded; placeholder uses the default Windows
+  app icon. Adding it = ship an `.ico` via a `.rc` file in the
+  project. Deferred to v0.2.1 if desired.
+
+### Closing exchange (this session)
+
+> **Claude:** Alright, the C++ port is staged. Foundation modules
+> (`proto`, `fuzzy`, `config`, `theme`, `util`, `net`) syntax-checked
+> clean; UI modules + `app` syntax-checked clean; ImGui core re-
+> compiled clean under our headers; Win32 host + Winsock code
+> reviewed against the v0.1.1 base. Realistic size lands ~1.2 – 1.5
+> MiB after MSVC `/O1` LTCG. Measure on your end.

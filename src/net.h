@@ -1,35 +1,43 @@
-// net.h - minimal localhost TCP client to the superwarp_hub Windower addon.
+// net.h - TCP client for superwarp's JSON bridge (default 127.0.0.1:19519).
 //
-// Design: one background worker thread owns the socket. The UI thread only
-// enqueues command lines (lock-free from the caller's perspective via a mutex-
-// guarded queue) and reads an atomic status. No asio, no boost - just Winsock.
+// One worker thread owns the socket and the protocol I/O. The UI thread
+// enqueues outgoing JSON command lines (fire-and-forget) and drains parsed
+// ServerMsg objects each frame. Auto-reconnects with a ~3s backoff. Endpoint
+// is changeable at runtime (Advanced view "apply + reconnect").
 //
 // by Eric Strawser (Seicz@Bahamut) - ITIWH.com
-
 #pragma once
+
+#include <cstdint>
 #include <string>
+#include <vector>
+
+#include "proto.h"
 
 namespace net
 {
     enum class Status { Disconnected, Connecting, Connected };
 
-    // Spawn the worker thread and begin connecting to host:port (loopback only).
-    void Start(const char* host, unsigned short port);
-
-    // Signal the worker to stop, close the socket, and join. Safe to call once.
+    void Start(const std::string& host, uint16_t port);
     void Stop();
 
-    // Queue a single command line for delivery. A trailing '\n' is added if
-    // absent. Thread-safe; returns immediately (fire-and-forget).
-    void SendLine(const std::string& line);
+    // Change the endpoint and drop the current connection (worker reconnects).
+    void SetEndpoint(const std::string& host, uint16_t port);
 
-    // Current connection state (atomic snapshot).
-    Status GetStatus();
-
-    // Human-readable status ("Connected" / "Connecting..." / "Disconnected").
+    Status      GetStatus();
     const char* StatusText();
+    std::string GetError();       // last connect/read error message (may be empty)
+    std::string Host();
+    uint16_t    Port();
 
-    // Connection target (for display).
-    const char* Host();
-    unsigned short Port();
+    // Queue a JSON command line. A trailing '\n' is appended if absent.
+    // Discarded silently if not connected.
+    void SendLine(const std::string& json_line);
+
+    // Drain all parsed incoming messages received since the last call.
+    std::vector<proto::ServerMsg> DrainIncoming();
+
+    // True once per (re)connection event. The app uses this to re-issue
+    // get_state / get_lists / get_unlocks.
+    bool ConsumeConnectedEvent();
 }
