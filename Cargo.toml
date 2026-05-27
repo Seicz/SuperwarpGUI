@@ -1,17 +1,23 @@
 [package]
 name = "superwarp-gui"
-version = "0.9.2"
+version = "0.9.3"
 edition = "2021"
 authors = ["Eric Strawser (Seicz@Bahamut)"]
 description = "External GUI for the superwarp FFXI addon fork — aether/warp themed"
 
 [dependencies]
-eframe = "0.31"
+# default-features = false strips accesskit + wayland + x11 + web_screen_reader.
+# We embed our own font (assets/Hack-Regular.ttf), so default_fonts is also off.
+eframe = { version = "0.31", default-features = false, features = ["glow"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [build-dependencies]
+# winresource: Windows icon + VERSIONINFO embedding (icon.ico).
 winresource = "0.1"
+# png: decode assets/icon.png once at build time into raw RGBA so the runtime
+# binary doesn't link image/png/fdeflate/flate2/miniz_oxide just to load one icon.
+png = "0.17"
 
 [profile.release]
 opt-level = "z"        # Optimize for size

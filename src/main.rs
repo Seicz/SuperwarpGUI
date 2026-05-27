@@ -2029,6 +2029,49 @@ impl eframe::App for WarpApp {
 }
 
 // =========================================================================
+// Embedded assets (built into the binary)
+// =========================================================================
+
+// Hack Regular - one TTF covering both Proportional and Monospace, replacing
+// egui's `default_fonts` bundle (Hack + Ubuntu-Light + NotoEmoji + emoji-icon-
+// font; ~1 MB embedded, of which we only ever rendered Hack). Sheds roughly
+// that megabyte from the binary. License: SIL OFL 1.1 (assets/Hack-LICENSE.md).
+const UI_FONT: &[u8] = include_bytes!("../assets/Hack-Regular.ttf");
+
+// App icon. build.rs decodes assets/icon.png to a raw RGBA blob in OUT_DIR so
+// the runtime binary doesn't drag in image / png / fdeflate / flate2 /
+// miniz_oxide (~120 KiB of .text) purely to decode one icon at startup.
+include!(concat!(env!("OUT_DIR"), "/icon_dims.rs"));
+const ICON_RGBA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/icon_rgba.bin"));
+
+fn install_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::empty();
+    fonts.font_data.insert(
+        "ui".to_owned(),
+        std::sync::Arc::new(egui::FontData::from_static(UI_FONT)),
+    );
+    fonts
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default()
+        .insert(0, "ui".to_owned());
+    fonts
+        .families
+        .entry(egui::FontFamily::Monospace)
+        .or_default()
+        .insert(0, "ui".to_owned());
+    ctx.set_fonts(fonts);
+}
+
+fn app_icon() -> egui::IconData {
+    egui::IconData {
+        rgba: ICON_RGBA.to_vec(),
+        width: ICON_WIDTH,
+        height: ICON_HEIGHT,
+    }
+}
+
+// =========================================================================
 // main
 // =========================================================================
 
@@ -2039,10 +2082,8 @@ fn main() -> eframe::Result<()> {
         .with_min_inner_size([300.0, 360.0])
         .with_title("superwarp — FFXI");
 
-    // title-bar / taskbar / alt-tab icon (replaces the default placeholder)
-    if let Ok(icon) = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png")) {
-        viewport = viewport.with_icon(std::sync::Arc::new(icon));
-    }
+    // title-bar / taskbar / alt-tab icon (decoded at build time, not runtime)
+    viewport = viewport.with_icon(std::sync::Arc::new(app_icon()));
 
     if let (Some(w), Some(h)) = (cfg.window_w, cfg.window_h) {
         viewport = viewport.with_inner_size([w, h]);
@@ -2065,6 +2106,7 @@ fn main() -> eframe::Result<()> {
         "superwarp GUI",
         options,
         Box::new(move |cc| {
+            install_fonts(&cc.egui_ctx);
             setup_aether_theme(&cc.egui_ctx);
             let mut app = WarpApp::default();
             app.always_on_top = cfg.always_on_top;

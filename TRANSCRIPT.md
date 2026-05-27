@@ -241,3 +241,45 @@ the box naturally persists through the warp. Added clear_search_pending: set whe
 result is clicked while in global search; cleared (clearing self.search) on the next
 State with busy==false; and cancelled if the user edits the search before it lands
 (so a fresh query isn't wiped). GUI-only; v0.9.2.
+
+---
+
+## Session (GUI v0.9.3) -- size lever pass
+
+**Context.** Comparison thread between the egui/Rust GUI and a hypothetical
+C++/ImGui rewrite. v0.1.1 of a stripped ImGui demo (companion + hub) landed
+around 1 MiB on disk; v0.9.2 of the real GUI sat near 3 MiB. Question on the
+table: how much of that 3 MiB is structural vs sheddable.
+
+**Eric:** Tried `default-features = false, features = ["glow", "default_fonts"]`
+(dropping `accesskit`, `wayland`, `x11`, `web_screen_reader` from eframe 0.31's
+default set), then ran `cargo bloat --release --crates`. Result: 1.2 MiB
+`.text`, file still 3.0 MiB. Pasted the bloat table.
+
+**Claude:** Diagnosed the gap. cargo-bloat only sees `.text`; the missing
+~1.8 MiB lives in `.rdata`, and the dominant occupant is the `default_fonts`
+font bundle (Hack + Ubuntu-Light + NotoEmoji + emoji-icon-font, ~1 MB
+embedded), of which only Hack is rendered. Secondary: the icon path runs
+through `from_png_bytes`, pulling `image` + `png` + `fdeflate` + `flate2` +
+`miniz_oxide` into the runtime binary (~120 KiB of `.text`) for one
+startup decode. Confirmed via grep that nothing in `main.rs` sets fonts or
+references the would-be-dropped features, so the changes are isolated.
+
+**Built (v0.9.3).**
+- Dropped `default_fonts`; embedded `assets/Hack-Regular.ttf` (303 KB, OFL,
+  vendored from source-foundry/Hack); added `install_fonts` routing both
+  Proportional and Monospace to the single Hack face via
+  `FontDefinitions::empty()`. Called at the top of the `run_native` closure
+  before `setup_aether_theme`.
+- New `build.rs` step decodes `assets/icon.png` to raw RGBA in `OUT_DIR`,
+  emits `icon_dims.rs` with `ICON_WIDTH` / `ICON_HEIGHT` constants;
+  `main.rs` `include_bytes!`s the blob and constructs `egui::IconData`
+  directly. `png` added as a build-dependency (not a runtime one).
+- `eframe` features locked to `["glow"]` only with `default-features = false`.
+- Patched `Cargo.toml`, `build.rs`, `src/main.rs`, `assets/Hack-Regular.ttf`,
+  `assets/Hack-LICENSE.md`, CHANGELOG/TRANSCRIPT entries. Bundled as
+  `superwarp-gui-v0.9.3-patch.zip`.
+
+**Not compiled here** (no Rust toolchain in the work environment) - verified
+the egui 0.31 `FontDefinitions { font_data: BTreeMap<String, Arc<FontData>> }`
+shape against the egui custom_font example before wiring. Eric measures.

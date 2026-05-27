@@ -5,6 +5,32 @@ v1.3.1). Development began at Stage 4 of the superwarp fork.
 
 ---
 
+## [0.9.3] -- size lever pass: custom font + build-time icon decode
+
+A binary-size pass after measuring the v0.9.2 build with `cargo bloat`:
+1.2 MiB of `.text` but the file on disk was 3.0 MiB, with the missing ~1.8 MiB
+sitting in `.rdata` -- almost entirely the four TTFs that `eframe`'s
+`default_fonts` feature embeds (Hack + Ubuntu-Light + NotoEmoji + emoji-icon-
+font, ~1 MB total) of which only Hack was ever rendered. Two changes:
+
+- **Custom font, single face.** Dropped the `default_fonts` eframe feature and
+  vendored Hack-Regular.ttf (OFL, ~303 KB) at `assets/Hack-Regular.ttf`,
+  installed via `egui::FontDefinitions::empty()` for both Proportional and
+  Monospace. Visual continuity preserved (Hack was the monospace family already
+  in use); the three unrendered fonts leave the binary.
+- **Build-time icon decode.** Added a `build.rs` step that decodes
+  `assets/icon.png` into a raw RGBA blob in `OUT_DIR` plus an `icon_dims.rs`
+  with the dimensions; `main.rs` now `include_bytes!`s the blob and constructs
+  `egui::IconData` directly. `png` is a build-dependency so the runtime no
+  longer links `image` / `png` / `fdeflate` / `flate2` / `miniz_oxide` (~120 KiB
+  of `.text`) just to load one icon. Windows resource embedding via
+  `winresource` is unchanged.
+
+Net Cargo.toml deltas: `eframe` now `default-features = false, features = ["glow"]`
+(also clearing `accesskit` / `wayland` / `x11` / `web_screen_reader` from the
+v0.9.2 default set); `png = "0.17"` added under `[build-dependencies]`. No
+source changes outside `main.rs`'s asset block and the two call sites.
+
 ## [0.9.2] -- clear the search box after a search-result warp
 
 Clicking a destination from a global search now clears the search box once the warp
