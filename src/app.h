@@ -19,7 +19,7 @@
 
 // ---- enums ---------------------------------------------------------------
 
-inline constexpr const char* GUI_VERSION = "0.2.14";
+inline constexpr const char* GUI_VERSION = "0.2.16";
 
 // Base font size we rasterize at (main.cpp's BuildFontAtScale uses BASE_FONT_PX
 // * dpi_scale). UI modules derive the current DPI scale from the actual
@@ -163,4 +163,11 @@ namespace ui
     void Destinations(App& a);
     void Advanced(App& a);
     void Footer(App& a);
+
+    // Larger/bold font used for the character + zone line in the header.
+    // Built alongside the body font in main.cpp (re-set on every DPI change,
+    // since rebuilding the atlas invalidates ImFont pointers). May be null if
+    // no suitable face loaded; callers should fall back to the default font.
+    ImFont* header_font();
+    void    set_header_font(ImFont* f);
 }

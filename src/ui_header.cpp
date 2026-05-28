@@ -59,7 +59,7 @@ void ui::Header(App& a)
     // the character row (these wraps use ItemSpacing.y). Horizontal spacing
     // between title/version/buttons stays at the default.
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
-                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 1.0f * scale));
+                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f * scale));
 
     // Row 1: chevron + title + version  |  pin + advanced + status
     const float row_h = 19.0f * scale;
@@ -159,6 +159,10 @@ void ui::Header(App& a)
     }
 
     // Row 2: character + zone | BUSY + cancel
+    // Rendered in the larger/bold header font when available, so the
+    // character name and current location stand out from the body text.
+    ImFont* hdr_font = ui::header_font();
+    if (hdr_font) ImGui::PushFont(hdr_font);
     ImGui::BeginGroup();
     if (a.character.empty())
     {
@@ -177,6 +181,7 @@ void ui::Header(App& a)
         ImGui::PopStyleColor();
     }
     ImGui::EndGroup();
+    if (hdr_font) ImGui::PopFont();
 
     if (a.busy)
     {

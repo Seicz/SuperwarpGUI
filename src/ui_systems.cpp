@@ -22,13 +22,13 @@ namespace
     // Two row heights: tall for rows that show an unlock count or destination
     // count below the label, short for label-only rows (Mog Garden, Spatial
     // displacement, Walk Of Echoes, etc.) which otherwise have ~half the row
-    // worth of dead space below them. Tuned tight -- the count line sits just
-    // under the label and each row carries only a few px of breathing room.
-    constexpr float ROW_H_TALL_BASE  = 29.0f;
-    constexpr float ROW_H_SHORT_BASE = 18.0f;
+    // worth of dead space below them. The count line is pulled up snug under
+    // the system name so each system reads as a tight two-line block.
+    constexpr float ROW_H_TALL_BASE  = 25.0f;
+    constexpr float ROW_H_SHORT_BASE = 16.0f;
     constexpr float PAD_X_BASE   = 5.0f;
-    constexpr float LABEL_Y_BASE = 2.0f;
-    constexpr float COUNT_Y_BASE = 16.0f;
+    constexpr float LABEL_Y_BASE = 1.0f;
+    constexpr float COUNT_Y_BASE = 14.0f;
     constexpr float COUNT_PAD_BASE = 6.0f;
     constexpr float ANIM         = 0.13f; // settle time constant (seconds)
 

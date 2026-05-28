@@ -277,8 +277,16 @@ void ui::Destinations(App& a)
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
                         ImVec2(ImGui::GetStyle().FramePadding.x, 2.0f * dscale));
 
+    int row_idx = 0;
     for (const auto& row : rows)
     {
+        // Namespace every widget in this row by a unique index. In global
+        // search the same destination label can appear under two different
+        // systems (e.g. "Southern San d'Oria [S]" for both Homepoint and
+        // Survival guide); without this, the two buttons derive the same
+        // ImGui ID and trip the "conflicting ID" warning on hover.
+        ImGui::PushID(row_idx++);
+
         auto unlocked = app::dest_unlocked(a, row.system, row.dest);
         std::optional<bool> afford;
         if (row.dest.cost)
@@ -343,6 +351,7 @@ void ui::Destinations(App& a)
             }
         }
         ImGui::EndGroup();
+        ImGui::PopID();
     }
     ImGui::PopStyleVar(2);
     ImGui::EndChild();

@@ -4,6 +4,42 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.16] - 2026-05-28
+
+### Fixed
+- **"2 visible items with conflicting ID" warning when hovering search
+  results.** In global search the same destination label can appear under
+  two different systems (e.g. "Southern San d'Oria [S]" for both Homepoint
+  and Survival guide). ImGui derives a widget's ID from its label, so the
+  two row buttons collided. Each destination row is now wrapped in
+  `PushID(index)` / `PopID()`, giving every row a unique ID namespace
+  regardless of duplicate labels.
+
+## [0.2.15] - 2026-05-28
+
+### Reverted
+- **Undid v0.2.14's auto-resizing header.** Back to a fixed-height header
+  child (the AutoResizeY change was not the spacing that needed work).
+  The fixed height is set to 41 units (~92px @ 2.25x), measured to clear
+  the now-taller character row, and the header's internal `ItemSpacing.y`
+  is restored to 2.
+
+### Changed
+- **Sidebar: tighter spacing between each system and its count line.**
+  The count ("121/121 unlocked", "48 destinations") now sits snug under
+  the system name (`LABEL_Y` 2 -> 1, `COUNT_Y` 16 -> 14) and the rows are
+  shorter (`ROW_H_TALL` 29 -> 25, `ROW_H_SHORT` 18 -> 16), so each system
+  reads as a compact two-line block and systems pack closer together.
+
+### Added
+- **Character/zone line enlarged and bolded.** The header's
+  "<character> @ <zone> (<id>)" line now renders in a dedicated larger,
+  bold font (Segoe UI Bold at ~16px base, with Semibold / Tahoma Bold /
+  regular fallbacks) so it stands out from the body text. The font is
+  built alongside the body font and re-registered on every DPI change
+  (rebuilding the atlas invalidates font pointers); if no suitable face
+  is found, the line falls back to the body font.
+
 ## [0.2.14] - 2026-05-28
 
 ### Fixed

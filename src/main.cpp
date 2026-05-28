@@ -87,6 +87,25 @@ static void BuildFontAtScale(float scale)
         cfg.GlyphRanges = ranges;
         io.Fonts->AddFontDefault(&cfg);
     }
+
+    // Larger + bold face for the header's character/zone line. Loaded at 1.35x
+    // the body size; prefers a real bold TTF, falls back to the regular face
+    // (still larger) and finally to null (ui_header then uses the body font).
+    const float px_hdr = 16.0f * scale;
+    ImFont* hdr = nullptr;
+    const char* hdr_candidates[] = {
+        "C:\\Windows\\Fonts\\segoeuib.ttf", // Segoe UI Bold
+        "C:\\Windows\\Fonts\\seguisb.ttf",  // Segoe UI Semibold
+        "C:\\Windows\\Fonts\\tahomabd.ttf", // Tahoma Bold
+        "C:\\Windows\\Fonts\\segoeui.ttf",  // regular, just larger
+    };
+    for (const char* p : hdr_candidates)
+    {
+        hdr = io.Fonts->AddFontFromFileTTF(p, px_hdr, nullptr, ranges);
+        if (hdr != nullptr) break;
+    }
+    ui::set_header_font(hdr); // may be null; ui_header handles that
+
     io.Fonts->Build();
 }
 
