@@ -62,7 +62,7 @@ void ui::Header(App& a)
                         ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f * scale));
 
     // Row 1: chevron + title + version  |  pin + advanced + status
-    const float row_h = 22.0f * scale;
+    const float row_h = 19.0f * scale;
     ImVec2 origin = ImGui::GetCursorScreenPos();
 
     // chevron

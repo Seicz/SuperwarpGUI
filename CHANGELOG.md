@@ -4,6 +4,16 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.12] - 2026-05-28
+
+### Changed
+- **Reduced the gap between the location row and the SYSTEMS/destinations
+  body by ~20px.** The body children (sidebar + main panel) had 8 units
+  of top padding; dropped to 2. Header height trimmed 54 -> 50 (banner
+  row 22 -> 19 to keep everything fitting without clipping). "SYSTEMS"
+  and "Homepoint [hp]" stay top-aligned with each other and now sit
+  close beneath the character/zone line.
+
 ## [0.2.11] - 2026-05-28
 
 ### Changed

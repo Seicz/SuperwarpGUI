@@ -276,7 +276,7 @@ void app::RenderFrame(App& a)
                         ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f * scale));
 
     const float total_h  = ImGui::GetContentRegionAvail().y;
-    const float header_h = 54.0f * scale;
+    const float header_h = 50.0f * scale;
 
     // Footer height tracks its content (up to 3 most-recent log lines, plus
     // the connect-error line when offline). Mirrors Rust's TopBottomPanel
@@ -314,7 +314,7 @@ void app::RenderFrame(App& a)
     if (side_w < side_w_min) side_w = side_w_min;
     if (side_w > side_w_max) side_w = side_w_max;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f * scale, 8.0f * scale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f * scale, 2.0f * scale));
     ImGui::BeginChild("##sys", ImVec2(side_w, body_h), ImGuiChildFlags_None);
     ui::Systems(a, body_h);
     ImGui::EndChild();
@@ -340,7 +340,7 @@ void app::RenderFrame(App& a)
     }
     ImGui::SameLine(0.0f, 0.0f);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 8.0f * scale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 2.0f * scale));
     ImGui::BeginChild("##main", ImVec2(0, body_h), ImGuiChildFlags_None);
     if (a.view == View::Advanced) ui::Advanced(a);
     else                          ui::Destinations(a);
