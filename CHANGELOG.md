@@ -4,6 +4,17 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.9] - 2026-05-28
+
+### Fixed
+- **Advanced > Diagnostics checkbox label was clipping at the right
+  edge** ("...verbose addon loggir"). ImGui's `Checkbox` is a single-
+  line label that has no wrap behavior and just clips at the parent's
+  right boundary. Shortened the label to `addon debug (//sw debug)` and
+  moved the verbose explanation into an on-hover tooltip describing the
+  toggle's behavior + the fact that the checkbox reflects the addon's
+  reported state.
+
 ## [0.2.8] - 2026-05-28
 
 ### Added

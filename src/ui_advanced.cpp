@@ -110,10 +110,14 @@ void ui::Advanced(App& a)
     bool connected = (net::GetStatus() == net::Status::Connected);
     bool dbg = a.addon_debug;
     if (!connected) ImGui::BeginDisabled();
-    if (ImGui::Checkbox("addon debug (//sw debug) -- verbose addon logging", &dbg))
+    if (ImGui::Checkbox("addon debug (//sw debug)", &dbg))
     {
         app::SetDebug(a, dbg);
     }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Toggle the addon's verbose logging. The addon\n"
+                          "reports its state back, so this checkbox\n"
+                          "reflects what //sw debug currently is in-game.");
     if (!connected) ImGui::EndDisabled();
 
     ImGui::PushStyleColor(ImGuiCol_Text, theme::v4(theme::MUTED));
