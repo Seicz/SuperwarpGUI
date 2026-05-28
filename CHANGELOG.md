@@ -4,6 +4,22 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.7] - 2026-05-28
+
+### Changed
+- **Default sidebar width is now 140 (was 190)** so the destinations
+  panel gets the majority of the horizontal real estate. The full long-
+  form destination labels (`Yorcia Weald - Enigmatic Device`,
+  `Western Adoulin - Couriers / Platea / Triumphus`) now fit without
+  truncation at typical window widths.
+
+### Added
+- **Sidebar width persists to `superwarp_gui.json`.** Drag the resize
+  handle and the new width is saved (on release, throttled save fires
+  after 3s or on shutdown) so the layout sticks across sessions. Stored
+  as `sidebar_width` (DPI-independent / unscaled), so the same JSON
+  loads correctly on a 100% display and a 250% one.
+
 ## [0.2.6] - 2026-05-27
 
 ### Fixed

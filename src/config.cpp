@@ -70,6 +70,7 @@ Config Config::load()
         c.host = h->get<std::string>();
     if (auto p = j.find("port"); p != j.end() && p->is_number_integer())
         c.port = static_cast<uint16_t>(p->get<int>());
+    c.sidebar_width = get_opt<float>(j, "sidebar_width");
 
     return c;
 }
@@ -87,6 +88,7 @@ void Config::save()
     j["system_order"] = system_order;
     j["host"]         = host;
     j["port"]         = port;
+    put_opt(j, "sidebar_width", sidebar_width);
 
     std::ofstream f(config_path(), std::ios::trunc);
     if (f) f << j.dump(2);

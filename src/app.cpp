@@ -301,7 +301,10 @@ void app::RenderFrame(App& a)
     // Body: systems sidebar + main panel.
     const float side_w_min = 120.0f * scale;
     const float side_w_max = 360.0f * scale;
-    static float side_w_unscaled = 190.0f;
+    // Default is intentionally narrow (140 unscaled) so the destinations panel
+    // gets most of the horizontal real estate; the user can drag wider and the
+    // change persists to superwarp_gui.json.
+    static float side_w_unscaled = a.config.sidebar_width.value_or(140.0f);
     float side_w = side_w_unscaled * scale;
     if (side_w < side_w_min) side_w = side_w_min;
     if (side_w > side_w_max) side_w = side_w_max;
@@ -322,6 +325,13 @@ void app::RenderFrame(App& a)
         side_w_unscaled = std::clamp(
             side_w_unscaled + ImGui::GetIO().MouseDelta.x / scale,
             120.0f, 360.0f);
+    }
+    // Commit on release so we persist a stable value, not every intermediate
+    // drag frame. mark_dirty triggers the throttled save in app::Tick.
+    if (ImGui::IsItemDeactivated())
+    {
+        a.config.sidebar_width = side_w_unscaled;
+        a.config.mark_dirty();
     }
     ImGui::SameLine(0.0f, 0.0f);
 

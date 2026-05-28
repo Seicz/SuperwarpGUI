@@ -21,6 +21,7 @@ struct Config
     std::vector<std::string>   system_order;
     std::string                host = "127.0.0.1";
     uint16_t                   port = 19519;
+    std::optional<float>       sidebar_width; // unscaled (DPI-independent)
 
     bool dirty = false; // in-memory only
 
