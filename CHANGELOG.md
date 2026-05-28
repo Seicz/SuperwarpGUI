@@ -4,6 +4,16 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.13] - 2026-05-28
+
+### Changed
+- **Header-to-body gap tightened further (~another 25-30px).** Header
+  height 50 -> 44 (near-minimal for banner + accent line + character
+  row), header vertical padding 5 -> 2, root inter-child `ItemSpacing.y`
+  2 -> 1, body children vertical padding 2 -> 1. The location row now
+  sits directly on top of the SYSTEMS/destinations content with only a
+  few pixels between.
+
 ## [0.2.12] - 2026-05-28
 
 ### Changed

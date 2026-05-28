@@ -273,10 +273,10 @@ void app::RenderFrame(App& a)
     // Tighter gap between the header / body / footer children than the global
     // default, so the accent line + character row hug the body below.
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
-                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f * scale));
+                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 1.0f * scale));
 
     const float total_h  = ImGui::GetContentRegionAvail().y;
-    const float header_h = 50.0f * scale;
+    const float header_h = 44.0f * scale;
 
     // Footer height tracks its content (up to 3 most-recent log lines, plus
     // the connect-error line when offline). Mirrors Rust's TopBottomPanel
@@ -297,7 +297,7 @@ void app::RenderFrame(App& a)
     const float body_h    = total_h - header_h - footer_h - 2.0f * spacing_y;
 
     // Header
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 5.0f * scale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 2.0f * scale));
     ImGui::BeginChild("##header", ImVec2(0, header_h), ImGuiChildFlags_None);
     ui::Header(a);
     ImGui::EndChild();
@@ -314,7 +314,7 @@ void app::RenderFrame(App& a)
     if (side_w < side_w_min) side_w = side_w_min;
     if (side_w > side_w_max) side_w = side_w_max;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f * scale, 2.0f * scale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f * scale, 1.0f * scale));
     ImGui::BeginChild("##sys", ImVec2(side_w, body_h), ImGuiChildFlags_None);
     ui::Systems(a, body_h);
     ImGui::EndChild();
@@ -340,7 +340,7 @@ void app::RenderFrame(App& a)
     }
     ImGui::SameLine(0.0f, 0.0f);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 2.0f * scale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 1.0f * scale));
     ImGui::BeginChild("##main", ImVec2(0, body_h), ImGuiChildFlags_None);
     if (a.view == View::Advanced) ui::Advanced(a);
     else                          ui::Destinations(a);
