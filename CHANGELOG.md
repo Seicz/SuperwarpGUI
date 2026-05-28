@@ -4,6 +4,20 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.10] - 2026-05-28
+
+### Changed
+- **Tighter vertical rhythm everywhere the list density felt loose.**
+  - SYSTEMS sidebar: tall (count-bearing) rows 34 -> 29, short
+    (label-only) rows 22 -> 18, the count line pulled up under the
+    label (COUNT_Y 19 -> 16, LABEL_Y 3 -> 2). Removes the dead band that
+    sat below the count line on every system row.
+  - Destinations list: warp rows are single-line clickables, so the
+    inter-row gap (`ItemSpacing.y`) and the per-row button padding
+    (`FramePadding.y`) are now pushed down to 2 units each inside the
+    list, instead of inheriting the global spacing that left almost a
+    full line of air between destinations.
+
 ## [0.2.9] - 2026-05-28
 
 ### Fixed

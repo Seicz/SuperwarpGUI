@@ -268,6 +268,15 @@ void ui::Destinations(App& a)
     ImGui::BeginChild("##destscroll", ImVec2(0, 0), ImGuiChildFlags_None);
     const bool can_warp = (net::GetStatus() == net::Status::Connected) && !a.busy;
 
+    // Tighten the vertical rhythm: warp rows are single-line clickables, so a
+    // smaller inter-row gap + slimmer button padding keeps the list dense
+    // instead of leaving a full line of air between each destination.
+    const float dscale = ui::dpi();
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f * dscale));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+                        ImVec2(ImGui::GetStyle().FramePadding.x, 2.0f * dscale));
+
     for (const auto& row : rows)
     {
         auto unlocked = app::dest_unlocked(a, row.system, row.dest);
@@ -335,5 +344,6 @@ void ui::Destinations(App& a)
         }
         ImGui::EndGroup();
     }
+    ImGui::PopStyleVar(2);
     ImGui::EndChild();
 }
