@@ -115,9 +115,13 @@
     <ClInclude Include="src\fuzzy.h" />
     <ClInclude Include="src\net.h" />
     <ClInclude Include="src\proto.h" />
+    <ClInclude Include="src\resource.h" />
     <ClInclude Include="src\theme.h" />
     <ClInclude Include="src\util.h" />
     <ClInclude Include="third_party\nlohmann\json.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="superwarp-companion.rc" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

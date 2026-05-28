@@ -4,6 +4,26 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.8] - 2026-05-28
+
+### Added
+- **Embedded application icon.** `resources/icon.ico` is now compiled
+  into the exe via `superwarp-companion.rc` (built by the project's
+  `ResourceCompile` item). The icon shows up in Explorer, the title
+  bar, the taskbar, and alt-tab. `main.cpp` loads `IDI_APPICON` and
+  passes it to both `hIcon` and `hIconSm` on the window class.
+
+### Changed
+- **Variable row heights in the SYSTEMS sidebar.** Rows that show a
+  count (`121/121 unlocked`, `48 destinations`) keep the 34-unit tall
+  height; rows with no count -- Mog Garden, Spatial displacement, Walk
+  Of Echoes, etc. -- shrink to 22 units, eliminating the ~40% dead-band
+  below each label-only system. Slot positions now derive from a prefix
+  sum of per-row heights rather than `slot * ROW_H`. The drag-reorder
+  insertion logic now walks the cumulative heights to find the slot
+  whose midpoint the ghost is closest to (so a tall row's gap opens by
+  34 units, a short row's gap opens by 22 units).
+
 ## [0.2.7] - 2026-05-28
 
 ### Changed

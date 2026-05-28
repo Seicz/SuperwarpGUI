@@ -19,7 +19,12 @@
 namespace
 {
     // All layout dims here are at 1.0x scale; multiply by ui::dpi() at use.
-    constexpr float ROW_H_BASE   = 34.0f;
+    // Two row heights: tall for rows that show an unlock count or destination
+    // count below the label, short for label-only rows (Mog Garden, Spatial
+    // displacement, Walk Of Echoes, etc.) which otherwise have ~half the row
+    // worth of dead space below them.
+    constexpr float ROW_H_TALL_BASE  = 34.0f;
+    constexpr float ROW_H_SHORT_BASE = 22.0f;
     constexpr float PAD_X_BASE   = 5.0f;
     constexpr float LABEL_Y_BASE = 3.0f;
     constexpr float COUNT_Y_BASE = 19.0f;
@@ -49,6 +54,15 @@ namespace
         bool                                   partial;
         uint32_t                               total_count;
     };
+
+    inline bool row_has_meta(const Row& r)
+    {
+        return r.counts.has_value() || r.total_count > 0;
+    }
+    inline float row_height_base(const Row& r)
+    {
+        return row_has_meta(r) ? ROW_H_TALL_BASE : ROW_H_SHORT_BASE;
+    }
 
     void paint_row_text(ImVec2 origin, const Row& row, ImU32 name_col, float scale)
     {
@@ -86,7 +100,6 @@ namespace
 void ui::Systems(App& a, float /*panel_height*/)
 {
     const float scale = ui::dpi();
-    const float ROW_H = ROW_H_BASE * scale;
     const float PAD_X = PAD_X_BASE * scale;
 
     ImGui::PushStyleColor(ImGuiCol_Text, theme::v4(theme::MUTED));
@@ -114,7 +127,7 @@ void ui::Systems(App& a, float /*panel_height*/)
         }
     }
 
-    const int n = static_cast<int>(rows.size());
+    const size_t n = rows.size();
     if (n == 0)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::v4(theme::MUTED));
@@ -127,66 +140,101 @@ void ui::Systems(App& a, float /*panel_height*/)
     ImGui::BeginChild("##sysscroll", ImVec2(0, 0), ImGuiChildFlags_None, 0);
     ImGui::PopStyleVar();
 
+    // ---- Per-row variable heights ----
+    std::vector<float> heights(n);
+    float total_h = 0.0f;
+    for (size_t i = 0; i < n; ++i)
+    {
+        heights[i] = row_height_base(rows[i]) * scale;
+        total_h += heights[i];
+    }
+
     const ImVec2 area_top = ImGui::GetCursorScreenPos();
     const float  width    = ImGui::GetContentRegionAvail().x;
-    const float  total_h  = n * ROW_H;
     ImGui::Dummy(ImVec2(width, total_h));
 
-    ImVec2 mouse = ImGui::GetIO().MousePos;
-    bool released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
-    float dt = ImGui::GetIO().DeltaTime;
+    const ImVec2 mouse    = ImGui::GetIO().MousePos;
+    const bool   released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+    const float  dt       = ImGui::GetIO().DeltaTime;
 
-    // Float y of the dragged ghost (cursor.y - grab_offset), and the slot it
-    // implies. Both nullopt when not dragging.
+    // The row order with the dragged key removed, used to place every other row.
+    std::vector<size_t> without_k_idx;
+    without_k_idx.reserve(n);
+    for (size_t i = 0; i < n; ++i)
+        if (!a.drag_system || *a.drag_system != rows[i].key)
+            without_k_idx.push_back(i);
+
+    // Dragged row's own height (needed to open a gap of the right size).
+    float dragged_h = 0.0f;
+    if (a.drag_system)
+    {
+        for (size_t i = 0; i < n; ++i)
+            if (rows[i].key == *a.drag_system) { dragged_h = heights[i]; break; }
+    }
+
+    // Floating tab y (cursor minus where it was grabbed). The insertion slot
+    // is chosen by walking the cumulative height of the non-dragged rows and
+    // finding which one's midpoint the ghost is closest to.
     std::optional<float> ghost_y;
     int ins = 0;
     if (a.drag_system)
     {
         ghost_y = mouse.y - a.drag_grab_offset;
-        float rel = (*ghost_y - area_top.y) / ROW_H;
-        ins = std::clamp(static_cast<int>(std::round(rel)), 0, std::max(0, n - 1));
+        const float rel = *ghost_y - area_top.y;
+        float acc = 0.0f;
+        ins = static_cast<int>(without_k_idx.size()); // append by default
+        for (size_t k = 0; k < without_k_idx.size(); ++k)
+        {
+            const float h = heights[without_k_idx[k]];
+            if (rel < acc + h * 0.5f) { ins = static_cast<int>(k); break; }
+            acc += h;
+        }
+        if (ins < 0) ins = 0;
     }
 
-    // Build the "without dragged" key order; used to assign slots to non-drag rows.
-    std::vector<const std::string*> without_k;
-    without_k.reserve(rows.size());
-    for (auto& r : rows)
-        if (!a.drag_system || *a.drag_system != r.key)
-            without_k.push_back(&r.key);
+    // Compute target y for every row in one pass.
+    std::vector<float> target_rel(n, 0.0f);
+    {
+        float y = 0.0f;
+        for (size_t k = 0; k < without_k_idx.size(); ++k)
+        {
+            // Open the gap for the dragged row at slot `ins`.
+            if (a.drag_system && static_cast<int>(k) == ins) y += dragged_h;
+            const size_t orig = without_k_idx[k];
+            target_rel[orig] = y;
+            y += heights[orig];
+        }
+        if (a.drag_system)
+        {
+            for (size_t i = 0; i < n; ++i)
+            {
+                if (rows[i].key == *a.drag_system)
+                {
+                    target_rel[i] = ghost_y ? (*ghost_y - area_top.y) : 0.0f;
+                    break;
+                }
+            }
+        }
+    }
 
     std::optional<std::string> clicked;
-
     ImDrawList* dl = ImGui::GetWindowDrawList();
 
     // ---- pass 1: non-drag rows (in place, with animation + interaction) ----
-    for (int i = 0; i < n; ++i)
+    for (size_t i = 0; i < n; ++i)
     {
-        const Row& row = rows[i];
+        const Row& row     = rows[i];
         const bool is_drag = a.drag_system && *a.drag_system == row.key;
-
-        // Target y relative to area top.
-        float target_rel;
-        if (is_drag)
-        {
-            target_rel = ghost_y ? (*ghost_y - area_top.y) : 0.0f;
-        }
-        else
-        {
-            int j = 0;
-            for (size_t k = 0; k < without_k.size(); ++k)
-                if (*without_k[k] == row.key) { j = static_cast<int>(k); break; }
-            int slot = a.drag_system ? (j < ins ? j : j + 1) : j;
-            target_rel = slot * ROW_H;
-        }
+        const float h      = heights[i];
 
         // Lerp toward target.
         float& cur = row_anim()[row.key];
-        if (is_drag) cur = target_rel; // pin to cursor; on release the lerp resumes.
-        else         cur = ease(cur, target_rel, dt, ANIM * 0.45f);
+        if (is_drag) cur = target_rel[i]; // pinned to cursor
+        else         cur = ease(cur, target_rel[i], dt, ANIM * 0.45f);
 
         const float row_y = area_top.y + cur;
         const ImVec2 row_min(area_top.x, row_y);
-        const ImVec2 row_max(area_top.x + width, row_y + ROW_H);
+        const ImVec2 row_max(area_top.x + width, row_y + h);
 
         if (!is_drag)
         {
@@ -203,7 +251,7 @@ void ui::Systems(App& a, float /*panel_height*/)
             // Interaction overlay.
             ImGui::SetCursorScreenPos(row_min);
             std::string id = "##sysrow_" + row.key;
-            ImGui::InvisibleButton(id.c_str(), ImVec2(width, ROW_H));
+            ImGui::InvisibleButton(id.c_str(), ImVec2(width, h));
             bool hovered = ImGui::IsItemHovered();
             bool active  = ImGui::IsItemActive();
 
@@ -226,30 +274,34 @@ void ui::Systems(App& a, float /*panel_height*/)
         }
     }
 
-    // ---- pass 2: the gap indicator + the dragged tab on a foreground layer ----
+    // ---- pass 2: the gap indicator + the dragged tab ----
     if (a.drag_system)
     {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-        // gap indicator
-        float gap_y = area_top.y + ins * ROW_H;
+        // Gap y = cumulative height of without_k rows before slot `ins`.
+        float gap_y_offset = 0.0f;
+        for (int k = 0; k < ins && k < static_cast<int>(without_k_idx.size()); ++k)
+            gap_y_offset += heights[without_k_idx[k]];
+        const float gap_y = area_top.y + gap_y_offset;
         dl->AddRectFilled(
             ImVec2(area_top.x + 1.0f * scale, gap_y + 2.0f * scale),
-            ImVec2(area_top.x + width - 1.0f * scale, gap_y + ROW_H - 2.0f * scale),
+            ImVec2(area_top.x + width - 1.0f * scale, gap_y + dragged_h - 2.0f * scale),
             theme::alpha(theme::AZURE, 26), 4.0f * scale);
 
-        // dragged tab: drop shadow + filled tile on top.
-        for (auto& row : rows)
+        // Dragged tab: drop shadow + filled tile on top.
+        for (size_t i = 0; i < n; ++i)
         {
-            if (row.key != *a.drag_system) continue;
-            float cur = row_anim()[row.key];
-            float row_y = area_top.y + cur;
+            if (rows[i].key != *a.drag_system) continue;
+            const float cur = row_anim()[rows[i].key];
+            const float row_y = area_top.y + cur;
+            const float h = heights[i];
             ImVec2 mn(area_top.x + 1.0f * scale, row_y + 1.0f * scale);
-            ImVec2 mx(area_top.x + width - 1.0f * scale, row_y + ROW_H - 1.0f * scale);
+            ImVec2 mx(area_top.x + width - 1.0f * scale, row_y + h - 1.0f * scale);
             dl->AddRectFilled(ImVec2(mn.x + 3.0f * scale, mn.y + 4.0f * scale),
                               ImVec2(mx.x + 3.0f * scale, mx.y + 4.0f * scale),
                               IM_COL32(0, 0, 0, 110), 5.0f * scale);
             dl->AddRectFilled(mn, mx, theme::HOVER, 5.0f * scale);
-            paint_row_text(ImVec2(area_top.x, row_y), row, theme::WHITE, scale);
+            paint_row_text(ImVec2(area_top.x, row_y), rows[i], theme::WHITE, scale);
             break;
         }
 
@@ -257,7 +309,7 @@ void ui::Systems(App& a, float /*panel_height*/)
         if (released)
         {
             std::vector<std::string> new_order;
-            new_order.reserve(rows.size());
+            new_order.reserve(n);
             for (auto& r : rows) new_order.push_back(r.key);
             auto it = std::find(new_order.begin(), new_order.end(), *a.drag_system);
             if (it != new_order.end())

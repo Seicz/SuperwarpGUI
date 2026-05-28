@@ -11,6 +11,7 @@
 #include "backends/imgui_impl_dx11.h"
 
 #include "app.h"
+#include "resource.h"
 #include "theme.h"
 
 #include <d3d11.h>
@@ -121,9 +122,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
 {
     ImGui_ImplWin32_EnableDpiAwareness();
 
+    // Embedded app icon (superwarp-companion.rc -> resources/icon.ico).
+    // hIcon is the title-bar / alt-tab icon; hIconSm is the small variant
+    // Windows picks for the upper-left corner. Both null-safe -- if loading
+    // fails for any reason, Win32 falls back to the default app icon.
+    HICON app_icon = ::LoadIconW((HINSTANCE)hInstance, MAKEINTRESOURCEW(IDI_APPICON));
+
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0, 0, hInstance,
-                       nullptr, nullptr, nullptr, nullptr,
-                       L"superwarp_companion", nullptr };
+                       app_icon, nullptr, nullptr, nullptr,
+                       L"superwarp_companion", app_icon };
     ::RegisterClassExW(&wc);
 
     // Load config early so the window can be created with the persisted geometry.
