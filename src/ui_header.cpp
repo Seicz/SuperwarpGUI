@@ -59,7 +59,7 @@ void ui::Header(App& a)
     // the character row (these wraps use ItemSpacing.y). Horizontal spacing
     // between title/version/buttons stays at the default.
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
-                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f * scale));
+                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 1.0f * scale));
 
     // Row 1: chevron + title + version  |  pin + advanced + status
     const float row_h = 19.0f * scale;

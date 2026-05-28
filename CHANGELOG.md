@@ -4,6 +4,27 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.14] - 2026-05-28
+
+### Fixed
+- **Root-caused the stubborn header-to-body gap with a headless layout
+  probe.** The header was a *fixed-height* child (`header_h`). A
+  measurement harness (ImGui's layout runs without a GPU) showed the
+  header's actual content -- banner row (45px) + accent line (6px) +
+  character row (29px) -- is **80px** at 2.25x DPI, but the fixed child
+  was `44 * 2.25 = 99px`, leaving **~19px of invisible dead space** below
+  the character row. Hand-tuning `header_h` one notch at a time never
+  removed it (and earlier `header_h = 70` was 157px -> 77px of dead
+  space). The header child now uses `ImGuiChildFlags_AutoResizeY` and
+  sizes exactly to its content; `body_h` is derived from the header's
+  *measured* height (`GetCursorPosY()` after the child) instead of a
+  guessed constant, so there is no dead band at any font size or DPI.
+  Internal header `ItemSpacing.y` also dropped 2 -> 1.
+
+  Note: an auto-resizing child reports its size one frame late (the probe
+  shows 6px on frame 0, then 80px from frame 1 on); harmless here since
+  the window renders continuously and the body re-derives every frame.
+
 ## [0.2.13] - 2026-05-28
 
 ### Changed

@@ -276,7 +276,6 @@ void app::RenderFrame(App& a)
                         ImVec2(ImGui::GetStyle().ItemSpacing.x, 1.0f * scale));
 
     const float total_h  = ImGui::GetContentRegionAvail().y;
-    const float header_h = 44.0f * scale;
 
     // Footer height tracks its content (up to 3 most-recent log lines, plus
     // the connect-error line when offline). Mirrors Rust's TopBottomPanel
@@ -290,18 +289,23 @@ void app::RenderFrame(App& a)
     const float  footer_pad_y = 6.0f * scale;
     const float  footer_h     = 2.0f * footer_pad_y + footer_lines * line_h;
 
-    // ImGui places ItemSpacing.y between each successive child in the column,
-    // so a body sized to `total - header - footer` would push the footer
-    // partway off-screen by 2*spacing. Subtract that here.
     const float spacing_y = ImGui::GetStyle().ItemSpacing.y;
-    const float body_h    = total_h - header_h - footer_h - 2.0f * spacing_y;
 
-    // Header
+    // Header: AUTO-SIZED to its content (banner + accent line + character row)
+    // rather than a fixed height, so there is no dead band between the
+    // character/zone line and the body below it. We then read the cursor
+    // position to learn the header's real height for the body_h math.
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 2.0f * scale));
-    ImGui::BeginChild("##header", ImVec2(0, header_h), ImGuiChildFlags_None);
+    ImGui::BeginChild("##header", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY);
     ui::Header(a);
     ImGui::EndChild();
     ImGui::PopStyleVar();
+
+    // Cursor is now at the bottom edge of the header child (root padding is 0,
+    // so this equals the header's actual height). The body fills what's left
+    // after the header, the footer, and the two inter-child gaps.
+    const float header_used = ImGui::GetCursorPosY();
+    const float body_h      = total_h - header_used - footer_h - 2.0f * spacing_y;
 
     // Body: systems sidebar + main panel.
     const float side_w_min = 120.0f * scale;
