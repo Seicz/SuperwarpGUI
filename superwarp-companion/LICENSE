@@ -1,0 +1,24 @@
+superwarp companion - license notice
+====================================
+
+Companion application and superwarp_hub addon:
+    (c) 2026 Eric Strawser (Seicz@Bahamut) - ITIWH.com
+    Provided as-is for use with Windower 4 / FFXI.
+
+Bundled third-party components
+------------------------------
+
+Dear ImGui (imgui/)
+    Copyright (c) 2014-2025 Omar Cornut
+    MIT License. Full text: imgui/LICENSE.txt
+    https://github.com/ocornut/imgui
+
+References (not bundled)
+------------------------
+
+superwarp
+    by Akaden. The companion targets superwarp's documented command surface for
+    compatibility but does not include or modify superwarp itself.
+    https://github.com/AkadenTK/superwarp
+
+AI-assisted development: Claude Opus 4.7 (Anthropic).

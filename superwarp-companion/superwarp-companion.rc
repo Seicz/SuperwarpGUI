@@ -1,0 +1,12 @@
+// superwarp-companion.rc - Win32 resource script.
+//
+// Compiled by rc.exe into a .res that's linked into the exe. The icon
+// resource with the lowest numeric ID is picked up automatically by
+// Explorer / file manager / alt-tab; we also pass IDI_APPICON to
+// LoadIcon() in main.cpp so the title bar + taskbar use it.
+//
+// by Eric Strawser (Seicz@Bahamut) - ITIWH.com
+
+#include "src/resource.h"
+
+IDI_APPICON ICON "resources/icon.ico"
