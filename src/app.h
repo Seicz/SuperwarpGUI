@@ -19,7 +19,7 @@
 
 // ---- enums ---------------------------------------------------------------
 
-inline constexpr const char* GUI_VERSION = "0.2.5";
+inline constexpr const char* GUI_VERSION = "0.2.6";
 
 // Base font size we rasterize at (main.cpp's BuildFontAtScale uses BASE_FONT_PX
 // * dpi_scale). UI modules derive the current DPI scale from the actual

@@ -4,6 +4,21 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.6] - 2026-05-27
+
+### Fixed
+- **Sidebar scrollbar was always visible** even when every system fit
+  on-screen. The `##sysscroll` child had `ImGuiWindowFlags_AlwaysVerticalScrollbar`
+  set; now uses the default (scrollbar appears only when content overflows).
+- **"scan" button clipped on the right** of the Destinations header. The
+  right-align math estimated each `SmallButton`'s width as
+  `text_width + 14` -- a 1.0x-scale guess. The real button width is
+  `text_width + 2 * FramePadding.x`, which at 250% DPI is ~30px of
+  padding per button, so the cluster ended up ~30-40px wider than the
+  alignment math thought and the rightmost button overflowed past the
+  panel edge. Now reads `FramePadding.x` and `ItemSpacing.x` from the
+  live style so the alignment is correct at any DPI scale.
+
 ## [0.2.5] - 2026-05-27
 
 ### Fixed

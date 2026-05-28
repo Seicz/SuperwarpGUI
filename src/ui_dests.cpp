@@ -150,12 +150,17 @@ void ui::Destinations(App& a)
                           : (a.dispatch == Dispatch::Party) ? theme::PARTY_COL
                                                             : theme::ALL_COL;
         const char* scan_txt = "scan";
-        float dw = ImGui::CalcTextSize(dlabel).x + 14.0f;
-        float sw = ImGui::CalcTextSize(scan_txt).x + 14.0f;
+        // SmallButton width = TextWidth + 2 * FramePadding.x; use the live style
+        // values so the right-edge alignment stays accurate across DPI scales.
+        const float btn_pad = 2.0f * ImGui::GetStyle().FramePadding.x;
+        const float gap     = ImGui::GetStyle().ItemSpacing.x;
+        float dw = ImGui::CalcTextSize(dlabel).x   + btn_pad;
+        float sw = ImGui::CalcTextSize(scan_txt).x + btn_pad;
+        float cluster_w = dw + gap + sw;
         ImGui::SameLine();
         float avail = ImGui::GetContentRegionAvail().x;
-        if (dw + sw + 8.0f < avail)
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - (dw + sw + 8.0f)));
+        if (cluster_w < avail)
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - cluster_w));
         if (small_chip(dlabel, dcol, theme::PANEL))
             a.dispatch = dispatch_next(a.dispatch);
         if (ImGui::IsItemHovered())
