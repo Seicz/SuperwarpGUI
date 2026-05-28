@@ -1,4 +1,4 @@
-# superwarp companion (v0.2.0)
+# superwarp companion (v0.2.9)
 
 A native **C++ / Dear ImGui** companion-window front end for Eric Strawser's
 fork of [superwarp](https://github.com/AkadenTK/superwarp) (originally by
