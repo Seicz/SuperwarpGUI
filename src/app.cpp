@@ -270,8 +270,13 @@ void app::RenderFrame(App& a)
     ImGui::Begin("##root", nullptr, flags);
     ImGui::PopStyleVar();
 
+    // Tighter gap between the header / body / footer children than the global
+    // default, so the accent line + character row hug the body below.
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f * scale));
+
     const float total_h  = ImGui::GetContentRegionAvail().y;
-    const float header_h = 70.0f * scale;
+    const float header_h = 54.0f * scale;
 
     // Footer height tracks its content (up to 3 most-recent log lines, plus
     // the connect-error line when offline). Mirrors Rust's TopBottomPanel
@@ -292,7 +297,7 @@ void app::RenderFrame(App& a)
     const float body_h    = total_h - header_h - footer_h - 2.0f * spacing_y;
 
     // Header
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 8.0f * scale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 5.0f * scale));
     ImGui::BeginChild("##header", ImVec2(0, header_h), ImGuiChildFlags_None);
     ui::Header(a);
     ImGui::EndChild();
@@ -351,6 +356,7 @@ void app::RenderFrame(App& a)
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 
+    ImGui::PopStyleVar(); // root ItemSpacing
     ImGui::End();
     ImGui::PopStyleColor();
 }

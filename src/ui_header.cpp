@@ -55,6 +55,12 @@ void ui::Header(App& a)
 {
     const float scale = ui::dpi();
 
+    // Tighten the vertical gaps between the banner row, the accent line, and
+    // the character row (these wraps use ItemSpacing.y). Horizontal spacing
+    // between title/version/buttons stays at the default.
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                        ImVec2(ImGui::GetStyle().ItemSpacing.x, 2.0f * scale));
+
     // Row 1: chevron + title + version  |  pin + advanced + status
     const float row_h = 22.0f * scale;
     ImVec2 origin = ImGui::GetCursorScreenPos();
@@ -142,14 +148,14 @@ void ui::Header(App& a)
         ImGui::PopStyleColor();
     }
 
-    // Accent line
+    // Accent line -- sits right under the banner row.
     {
         ImVec2 p = ImGui::GetCursorScreenPos();
         float w = ImGui::GetContentRegionAvail().x;
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(ImVec2(p.x, p.y + 2.0f * scale),
-                          ImVec2(p.x + w, p.y + 4.0f * scale), theme::AZURE);
-        ImGui::Dummy(ImVec2(0.0f, 6.0f * scale));
+        dl->AddRectFilled(ImVec2(p.x, p.y),
+                          ImVec2(p.x + w, p.y + 2.0f * scale), theme::AZURE);
+        ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
     }
 
     // Row 2: character + zone | BUSY + cancel
@@ -190,4 +196,6 @@ void ui::Header(App& a)
         if (ImGui::SmallButton("cancel")) app::Cancel(a);
         ImGui::PopStyleColor();
     }
+
+    ImGui::PopStyleVar(); // ItemSpacing
 }

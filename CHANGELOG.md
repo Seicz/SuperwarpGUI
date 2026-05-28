@@ -4,6 +4,21 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.11] - 2026-05-28
+
+### Changed
+- **Header packed tighter.** Removed the loose vertical gaps in the top
+  area:
+  - Banner -> accent line: the line now sits directly under the banner
+    row (header `ItemSpacing.y` pushed to 2 units; accent-line draw
+    offset 2->0; trailing dummy 6->2).
+  - Header child height 70 -> 54 and its vertical padding 8 -> 5, so the
+    character/zone row sits near the bottom of the header instead of
+    leaving a dead band beneath it.
+  - Header / body / footer inter-child gap: the root window now pushes a
+    2-unit `ItemSpacing.y` (was the global ~5), so the accent line +
+    location row hug the SYSTEMS/destinations content below.
+
 ## [0.2.10] - 2026-05-28
 
 ### Changed
