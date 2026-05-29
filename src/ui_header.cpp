@@ -69,8 +69,8 @@ void ui::Header(App& a)
     const float chev_h = 18.0f * scale;
     const float chev_w = chev_h * 1.15f;
     paint_chevron(ImVec2(origin.x, origin.y + (row_h - chev_h) * 0.5f), chev_h);
-    ImGui::Dummy(ImVec2(chev_w + 4.0f * scale, row_h));
-    ImGui::SameLine();
+    ImGui::Dummy(ImVec2(chev_w + 2.0f * scale, row_h));
+    ImGui::SameLine(0.0f, 4.0f * scale); // tight, controlled gap to the title
 
     // title -- bigger than the rest of the UI to mirror the Rust GUI's
     // monospace(16) vs body monospace(11) ratio.

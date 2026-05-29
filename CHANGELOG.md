@@ -4,6 +4,22 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.19] - 2026-05-29
+
+### Changed
+- **`resources/icon.png` is now generated from `resources/icon.ico`.**
+  The two were different exports -- the .ico has transparent rounded
+  corners (RGBA), the old .png was a flat opaque square (RGB). The .ico
+  is the single source of truth for the logo; the PNG is now its 256x256
+  frame with alpha preserved, so the two match. (The window / taskbar /
+  alt-tab icon already comes from the .ico via the resource script; the
+  in-app header logo remains the crisp vector-painted chevron, which
+  scales cleanly at any DPI.)
+- **Tighter gap between the chevron logo and the "superwarp" title** in
+  the header: the chevron's trailing pad 4 -> 2 and the title now uses an
+  explicit 4-unit `SameLine` gap instead of the default ~8, roughly
+  halving the space (~27px -> ~14px @ 2.25x).
+
 ## [0.2.18] - 2026-05-29
 
 ### Changed
