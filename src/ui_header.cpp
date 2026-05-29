@@ -148,13 +148,16 @@ void ui::Header(App& a)
         ImGui::PopStyleColor();
     }
 
-    // Accent line -- sits right under the banner row.
+    // Accent line -- nudged up ~1px so it hugs the banner with no sliver of
+    // gap above it. Only the draw position moves; the layout cursor (and thus
+    // the character row below) stays put.
     {
         ImVec2 p = ImGui::GetCursorScreenPos();
         float w = ImGui::GetContentRegionAvail().x;
+        const float up = 1.0f * scale;
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(ImVec2(p.x, p.y),
-                          ImVec2(p.x + w, p.y + 2.0f * scale), theme::AZURE);
+        dl->AddRectFilled(ImVec2(p.x, p.y - up),
+                          ImVec2(p.x + w, p.y - up + 2.0f * scale), theme::AZURE);
         ImGui::Dummy(ImVec2(0.0f, 2.0f * scale));
     }
 

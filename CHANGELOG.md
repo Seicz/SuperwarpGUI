@@ -4,6 +4,17 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.18] - 2026-05-29
+
+### Changed
+- **Accent line nudged up ~1px** to sit flush under the superwarp banner,
+  eliminating the thin sliver of gap above it. Only the line's draw
+  position moved; the character row below is unchanged.
+- **A few px of breathing room between the character/zone line and the
+  body.** The sidebar + main panel top padding went 1 -> 3, adding ~4px
+  above both the SYSTEMS list and the destinations (kept equal so the two
+  stay top-aligned).
+
 ## [0.2.17] - 2026-05-28
 
 ### Changed
