@@ -318,7 +318,7 @@ void app::RenderFrame(App& a)
     ImGui::PopStyleVar();
 
     // Body: systems sidebar + main panel.
-    const float side_w_min = 120.0f * scale;
+    const float side_w_min = 100.0f * scale;
     const float side_w_max = 360.0f * scale;
     // Default is intentionally narrow (140 unscaled) so the destinations panel
     // gets most of the horizontal real estate; the user can drag wider and the
@@ -328,7 +328,7 @@ void app::RenderFrame(App& a)
     if (side_w < side_w_min) side_w = side_w_min;
     if (side_w > side_w_max) side_w = side_w_max;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f * scale, 1.0f * scale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5.0f * scale, 1.0f * scale));
     ImGui::BeginChild("##sys", ImVec2(side_w, body_h), ImGuiChildFlags_None);
     ui::Systems(a, body_h);
     ImGui::EndChild();
@@ -336,14 +336,14 @@ void app::RenderFrame(App& a)
 
     // Resize handle.
     ImGui::SameLine(0.0f, 0.0f);
-    ImGui::InvisibleButton("##sysresize", ImVec2(4.0f * scale, body_h));
+    ImGui::InvisibleButton("##sysresize", ImVec2(3.0f * scale, body_h));
     if (ImGui::IsItemHovered() || ImGui::IsItemActive())
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
     if (ImGui::IsItemActive())
     {
         side_w_unscaled = std::clamp(
             side_w_unscaled + ImGui::GetIO().MouseDelta.x / scale,
-            120.0f, 360.0f);
+            100.0f, 360.0f);
     }
     // Commit on release so we persist a stable value, not every intermediate
     // drag frame. mark_dirty triggers the throttled save in app::Tick.
@@ -354,7 +354,7 @@ void app::RenderFrame(App& a)
     }
     ImGui::SameLine(0.0f, 0.0f);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f * scale, 1.0f * scale));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5.0f * scale, 1.0f * scale));
     ImGui::BeginChild("##main", ImVec2(0, body_h), ImGuiChildFlags_None);
     if (a.view == View::Advanced) ui::Advanced(a);
     else                          ui::Destinations(a);

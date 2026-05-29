@@ -4,6 +4,20 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.17] - 2026-05-28
+
+### Changed
+- **Reduced the horizontal gap between the sidebar and the destinations
+  list.** The space between a system name and the destination rows' state
+  dots was the sum of the sidebar's right padding (10), the resize handle
+  (4), and the main panel's left padding (12) -- ~26 units. Trimmed to
+  sidebar padding 5, handle 3, main padding 5 (~13 units), pulling the
+  destinations (and their green/grey dots) left toward the sidebar.
+- **Sidebar minimum width 120 -> 100** so the divider can be dragged
+  tighter, closing the empty space that short system names leave to their
+  right. The default (140) still fits the longest name ("Spatial
+  displacement"); drag narrower and it persists to superwarp_gui.json.
+
 ## [0.2.16] - 2026-05-28
 
 ### Fixed
