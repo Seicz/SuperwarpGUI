@@ -4,6 +4,21 @@ All notable changes to superwarp companion are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is
 [SemVer](https://semver.org/).
 
+## [0.2.20] - 2026-05-29
+
+### Fixed
+- **Advanced > log console no longer clips long lines.** Log text used
+  `TextUnformatted`, which doesn't wrap, so entries like "Leaving Mog
+  Garden. Heading back from whence you came." ran off the right edge.
+  Added `PushTextWrapPos` so lines wrap at the console's right edge.
+
+### Changed
+- **About section now credits the original addon author separately from
+  the fork/GUI work.** Reads "Original superwarp addon by Akaden." then
+  "JSON bridge + fuzzy search fork, and this companion GUI, by Eric
+  Strawser (Seicz@Bahamut) - ITIWH.com" (wrapped). Mirrors the
+  attribution already in the README.
+
 ## [0.2.19] - 2026-05-29
 
 ### Changed

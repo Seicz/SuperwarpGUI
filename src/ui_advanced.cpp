@@ -129,6 +129,9 @@ void ui::Advanced(App& a)
     ImGui::Dummy(ImVec2(0, 4));
     ImGui::PushStyleColor(ImGuiCol_ChildBg, theme::v4(theme::INPUT));
     ImGui::BeginChild("##logconsole", ImVec2(0, 220.0f * ui::dpi()), ImGuiChildFlags_Borders);
+    // Wrap long log lines at the console's right edge instead of letting them
+    // run off the side ("Leaving Mog Garden. Heading back from whence you ca...").
+    ImGui::PushTextWrapPos(0.0f);
     if (a.log_lines.empty())
     {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::v4(theme::MUTED));
@@ -145,6 +148,7 @@ void ui::Advanced(App& a)
         ImGui::TextUnformatted(l.text.c_str());
         ImGui::PopStyleColor();
     }
+    ImGui::PopTextWrapPos();
     if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f)
         ImGui::SetScrollHereY(1.0f);
     ImGui::EndChild();
@@ -157,6 +161,11 @@ void ui::Advanced(App& a)
     const char* av = a.addon_version.empty() ? "(not connected)" : a.addon_version.c_str();
     ImGui::PushStyleColor(ImGuiCol_Text, theme::v4(theme::MUTED));
     ImGui::Text("GUI v%s   addon v%s", GUI_VERSION, av);
-    ImGui::TextUnformatted("by Eric Strawser (Seicz@Bahamut) - ITIWH.com");
+    ImGui::Dummy(ImVec2(0, 2));
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextUnformatted("Original superwarp addon by Akaden.");
+    ImGui::TextUnformatted("JSON bridge + fuzzy search fork, and this companion GUI, "
+                           "by Eric Strawser (Seicz@Bahamut) - ITIWH.com");
+    ImGui::PopTextWrapPos();
     ImGui::PopStyleColor();
 }
